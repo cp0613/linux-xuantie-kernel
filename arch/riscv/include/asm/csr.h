@@ -102,6 +102,13 @@
 #define SATP_ASID_MASK	_AC(0xFFFF, UXL)
 #endif
 
+/* SQOSCFG fields */
+#define SQOSCFG_RCID_MASK	_AC(0x00000FFF, UL)
+#define SQOSCFG_MCID_MASK	SQOSCFG_RCID_MASK
+#define SQOSCFG_MCID_SHIFT	16
+#define SQOSCFG_MASK		((SQOSCFG_MCID_MASK << SQOSCFG_MCID_SHIFT) | \
+				  SQOSCFG_RCID_MASK)
+
 /* Exception cause high bit - is an interrupt if set */
 #define CAUSE_IRQ_FLAG		(_AC(1, UXL) << (__riscv_xlen - 1))
 
@@ -356,6 +363,7 @@
 #define CSR_STVAL		0x143
 #define CSR_SIP			0x144
 #define CSR_SATP		0x180
+#define CSR_SQOSCFG		0x181
 
 #define CSR_STIMECMP		0x14D
 #define CSR_STIMECMPH		0x15D

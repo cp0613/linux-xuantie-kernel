@@ -109,6 +109,9 @@ struct thread_struct {
 #ifdef CONFIG_DYNAMIC_MEMORY_CONSISTENCY_MODEL
 	unsigned long memory_consistency_model;
 #endif
+#ifdef CONFIG_RISCV_ISA_SSQOSID
+	u32 sqoscfg;
+#endif
 } __attribute__((__aligned__(sizeof(xlen_t))));
 
 /* Whitelist the fstate from the task_struct for hardened usercopy */

@@ -15,6 +15,7 @@
 #include <asm/csr.h>
 #include <asm/xuantie_csr_ext.h>
 #include <asm/dtso.h>
+#include <asm/qos.h>
 
 #ifdef CONFIG_FPU
 extern void __fstate_save(struct task_struct *save_to);
@@ -110,6 +111,7 @@ do {							\
 	__switch_to_envcfg(__next);			\
 	qos_sched_in(__next);				\
 	((last) = __switch_to(__prev, __next));		\
+	qos_sched_in(__next);				\
 } while (0)
 
 #endif /* _ASM_RISCV_SWITCH_TO_H */
