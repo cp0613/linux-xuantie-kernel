@@ -110,3 +110,4 @@ obj-$(CONFIG_64BIT)		+= pi/
 obj-$(CONFIG_ACPI)		+= acpi.o
 
 obj-$(CONFIG_RISCV_USER_CFI) += usercfi.o
+obj-$(CONFIG_PARAVIRT_SPINLOCKS) += qspinlock_paravirt.o
