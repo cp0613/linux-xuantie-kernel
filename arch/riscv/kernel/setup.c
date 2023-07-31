@@ -294,6 +294,10 @@ no_zacas:
 
 qspinlock:
 	pr_info("Queued spinlock %s: enabled\n", using_ext);
+
+#ifdef CONFIG_PARAVIRT_SPINLOCKS
+	pv_qspinlock_init();
+#endif
 }
 
 extern void __init init_rt_signal_env(void);
