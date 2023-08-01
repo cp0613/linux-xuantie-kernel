@@ -33,6 +33,7 @@ enum sbi_ext_id {
 	SBI_EXT_PMU = 0x504D55,
 	SBI_EXT_DBCN = 0x4442434E,
 	SBI_EXT_STA = 0x535441,
+	SBI_EXT_PVLOCK = 0xAB0401,
 
 	/* Experimentals extensions must lie within this range */
 	SBI_EXT_EXPERIMENTAL_START = 0x08000000,
@@ -274,6 +275,11 @@ struct sbi_sta_struct {
 } __packed;
 
 #define SBI_STA_SHMEM_DISABLE		-1
+
+/* kick cpu out of wfi */
+enum sbi_ext_pvlock_fid {
+	SBI_EXT_PVLOCK_KICK_CPU = 0,
+};
 
 /* SBI spec version fields */
 #define SBI_SPEC_VERSION_DEFAULT	0x1
