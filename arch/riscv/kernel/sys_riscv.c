@@ -161,6 +161,7 @@ static void hwprobe_isa_ext0(struct riscv_hwprobe *pair,
 		EXT_KEY(ZBA);
 		EXT_KEY(ZBB);
 		EXT_KEY(ZBS);
+<<<<<<< HEAD
 		EXT_KEY(ZBC);
 		EXT_KEY(ZBKB);
 		EXT_KEY(ZBKC);
@@ -185,6 +186,9 @@ static void hwprobe_isa_ext0(struct riscv_hwprobe *pair,
 			EXT_KEY(ZVKSH);
 			EXT_KEY(ZVKT);
 		}
+=======
+		EXT_KEY(ZICBOZ);
+>>>>>>> e774c188bd5d... RISC-V: hwprobe: Expose Zicboz extension and its block size
 #undef EXT_KEY
 	}
 
