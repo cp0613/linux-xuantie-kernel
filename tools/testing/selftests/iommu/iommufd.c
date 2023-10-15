@@ -87,12 +87,13 @@ TEST_F(iommufd, cmd_fail)
 
 TEST_F(iommufd, cmd_length)
 {
-#define TEST_LENGTH(_struct, _ioctl)                                     \
+#define TEST_LENGTH(_struct, _ioctl, _last)                              \
 	{                                                                \
+		size_t min_size = offsetofend(struct _struct, _last);    \
 		struct {                                                 \
 			struct _struct cmd;                              \
 			uint8_t extra;                                   \
-		} cmd = { .cmd = { .size = sizeof(struct _struct) - 1 }, \
+		} cmd = { .cmd = { .size = min_size - 1 },               \
 			  .extra = UINT8_MAX };                          \
 		int old_errno;                                           \
 		int rc;                                                  \
@@ -1700,8 +1701,6 @@ TEST_F(iommufd_mock_domain, alloc_hwpt)
 		uint32_t hwpt_id[2];
 		uint32_t stddev_id;
 
-		test_cmd_hwpt_alloc(self->idev_ids[0], self->ioas_id, &hwpt_id);
-		test_cmd_mock_domain(hwpt_id, &stddev_id, NULL, NULL);
 		test_err_hwpt_alloc(EOPNOTSUPP,
 				    self->idev_ids[i], self->ioas_id,
 				    ~IOMMU_HWPT_ALLOC_NEST_PARENT, &hwpt_id[0]);
