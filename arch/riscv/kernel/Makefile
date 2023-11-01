@@ -59,6 +59,7 @@ obj-y	+= stacktrace.o
 obj-y	+= cacheinfo.o
 obj-y	+= patch.o
 obj-y	+= probes/
+obj-y	+= tests/
 obj-$(CONFIG_MMU) += vdso.o vdso/
 obj-$(CONFIG_VDSO64)  += vdso64.o
 obj-$(CONFIG_VDSO32)  += vdso32.o
