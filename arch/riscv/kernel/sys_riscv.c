@@ -176,6 +176,25 @@ static void hwprobe_isa_ext0(struct riscv_hwprobe *pair,
 		EXT_KEY(ZBKC);
 		EXT_KEY(ZBKX);
 		EXT_KEY(ZICBOZ);
+		EXT_KEY(ZKND);
+		EXT_KEY(ZKNE);
+		EXT_KEY(ZKNH);
+		EXT_KEY(ZKSED);
+		EXT_KEY(ZKSH);
+		EXT_KEY(ZKT);
+
+		if (has_vector()) {
+			EXT_KEY(ZVBB);
+			EXT_KEY(ZVBC);
+			EXT_KEY(ZVKB);
+			EXT_KEY(ZVKG);
+			EXT_KEY(ZVKNED);
+			EXT_KEY(ZVKNHA);
+			EXT_KEY(ZVKNHB);
+			EXT_KEY(ZVKSED);
+			EXT_KEY(ZVKSH);
+			EXT_KEY(ZVKT);
+		}
 #undef EXT_KEY
 	}
 
