@@ -195,6 +195,8 @@ static void hwprobe_isa_ext0(struct riscv_hwprobe *pair,
 			EXT_KEY(ZVKSED);
 			EXT_KEY(ZVKSH);
 			EXT_KEY(ZVKT);
+			EXT_KEY(ZVFH);
+			EXT_KEY(ZVFHMIN);
 		}
 
 		if (has_fpu()) {
