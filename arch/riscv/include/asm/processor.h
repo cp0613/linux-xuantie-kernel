@@ -164,6 +164,13 @@ long get_tagged_addr_ctrl(struct task_struct *task);
 #define GET_TAGGED_ADDR_CTRL()		get_tagged_addr_ctrl(current)
 #endif
 
+#ifdef CONFIG_RISCV_ISA_SSDTSO
+extern int dtso_set_memory_consistency_model(unsigned long arg);
+extern int dtso_get_memory_consistency_model(void);
+#define SET_MEMORY_CONSISTENCY_MODEL(arg)	dtso_set_memory_consistency_model(arg)
+#define GET_MEMORY_CONSISTENCY_MODEL()		dtso_get_memory_consistency_model()
+#endif /* CONIG_RISCV_ISA_SSDTSO */
+
 #endif /* __ASSEMBLY__ */
 
 #endif /* _ASM_RISCV_PROCESSOR_H */
