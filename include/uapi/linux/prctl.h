@@ -358,4 +358,7 @@ struct prctl_mm_map {
  */
 #define PR_LOCK_INDIR_BR_LP_STATUS      76
 
+#define PR_SET_MEMORY_CONSISTENCY_MODEL		77
+#define PR_GET_MEMORY_CONSISTENCY_MODEL		78
+
 #endif /* _LINUX_PRCTL_H */
