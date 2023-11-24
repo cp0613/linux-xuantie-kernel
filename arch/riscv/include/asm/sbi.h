@@ -271,8 +271,13 @@ struct sbiret sbi_ecall(int ext, int fid, xlen_t arg0,
 			xlen_t arg3, xlen_t arg4,
 			xlen_t arg5);
 
+#ifdef CONFIG_RISCV_SBI_V01
 void sbi_console_putchar(int ch);
 int sbi_console_getchar(void);
+#else
+static inline void sbi_console_putchar(int ch) { }
+static inline int sbi_console_getchar(void) { return -ENOENT; }
+#endif
 long sbi_get_mvendorid(void);
 long sbi_get_marchid(void);
 long sbi_get_mimpid(void);
