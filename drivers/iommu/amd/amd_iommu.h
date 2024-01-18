@@ -42,14 +42,6 @@ extern int amd_iommu_gpt_level;
 struct iommu_domain;
 
 bool amd_iommu_v2_supported(void);
-struct amd_iommu *get_amd_iommu(unsigned int idx);
-u8 amd_iommu_pc_get_max_banks(unsigned int idx);
-bool amd_iommu_pc_supported(void);
-u8 amd_iommu_pc_get_max_counters(unsigned int idx);
-int amd_iommu_pc_get_reg(struct amd_iommu *iommu, u8 bank, u8 cntr,
-			 u8 fxn, u64 *value);
-int amd_iommu_pc_set_reg(struct amd_iommu *iommu, u8 bank, u8 cntr,
-			 u8 fxn, u64 *value);
 
 int amd_iommu_register_ppr_notifier(struct notifier_block *nb);
 int amd_iommu_unregister_ppr_notifier(struct notifier_block *nb);
