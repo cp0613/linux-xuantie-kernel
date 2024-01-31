@@ -14,6 +14,7 @@
 #include <asm/ptrace.h>
 #include <asm/csr.h>
 #include <asm/xuantie_csr_ext.h>
+#include <asm/dtso.h>
 
 #ifdef CONFIG_FPU
 extern void __fstate_save(struct task_struct *save_to);
@@ -104,6 +105,8 @@ do {							\
 		__switch_to_matrix(__prev, __next);	\
 	if (has_xuantie_csr_ext())				\
 		__switch_to_xuantie_csr_ext(__prev, __next);	\
+	if (has_dtso()) 				\
+		__switch_to_dtso(__prev, __next);	\
 	__switch_to_envcfg(__next);			\
 	((last) = __switch_to(__prev, __next));		\
 } while (0)
