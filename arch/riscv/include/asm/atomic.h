@@ -23,7 +23,6 @@ typedef struct {
 #endif
 
 #include <asm/cmpxchg.h>
-#include <asm/barrier.h>
 
 #define __atomic_acquire_fence()					\
 	__asm__ __volatile__(RISCV_ACQUIRE_BARRIER "" ::: "memory")

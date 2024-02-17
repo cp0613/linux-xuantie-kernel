@@ -8,8 +8,7 @@
 
 #include <linux/bug.h>
 #include <linux/mmdebug.h>
-
-#include <asm/alternative-macros.h>
+#include <asm/cpufeature.h>
 #include <asm/fence.h>
 #include <asm/hwcap.h>
 #include <asm/insn-def.h>
