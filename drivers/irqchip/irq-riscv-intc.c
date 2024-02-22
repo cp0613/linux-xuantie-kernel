@@ -20,8 +20,8 @@
 #include <linux/soc/andes/irq.h>
 
 static struct irq_domain *intc_domain;
-static unsigned int riscv_intc_nr_irqs __ro_after_init = __riscv_xlen;
-static unsigned int riscv_intc_custom_base __ro_after_init = __riscv_xlen;
+static unsigned int riscv_intc_nr_irqs __ro_after_init = BITS_PER_LONG;
+static unsigned int riscv_intc_custom_base __ro_after_init = BITS_PER_LONG;
 static unsigned int riscv_intc_custom_nr_irqs __ro_after_init;
 
 static asmlinkage void riscv_intc_irq(struct pt_regs *regs)
@@ -29,7 +29,7 @@ static asmlinkage void riscv_intc_irq(struct pt_regs *regs)
 	xlen_t cause = regs->cause & ~CAUSE_IRQ_FLAG;
 
 	if (generic_handle_domain_irq(intc_domain, cause))
-		pr_warn_ratelimited("Failed to handle interrupt (cause: %ld)\n", (unsigned long)cause);
+		pr_warn_ratelimited("Failed to handle interrupt (cause: %lld)\n", (u64)cause);
 }
 
 /*
