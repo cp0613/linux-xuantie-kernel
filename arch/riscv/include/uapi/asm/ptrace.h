@@ -160,6 +160,15 @@ struct user_cfi_state {
 	__u64 shstk_ptr;
 };
 
+struct user_hwdebug_state {
+	__u64 dbg_info;
+	struct {
+		__u64 addr;
+		__u64 type;
+		__u64 len;
+	} dbg_regs[16];
+};
+
 #endif /* __ASSEMBLY__ */
 
 #endif /* _UAPI_ASM_RISCV_PTRACE_H */
