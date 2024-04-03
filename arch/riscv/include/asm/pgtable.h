@@ -407,7 +407,7 @@ static inline int pte_special(pte_t pte)
 
 static inline pte_t pte_wrprotect(pte_t pte)
 {
-	return __pte(pte_val(pte) & ~(_PAGE_WRITE));
+	return __pte((pte_val(pte) & ~(_PAGE_WRITE)) | (_PAGE_READ));
 }
 
 /* static inline pte_t pte_mkread(pte_t pte) */
@@ -614,7 +614,9 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm,
 #ifdef CONFIG_MMU_SV32
 	atomic_long_and(~(unsigned long)_PAGE_WRITE, (atomic_long_t *)ptep);
 #else
-	atomic64_and(~(ptval_t)_PAGE_WRITE, (atomic64_t *)ptep);
+	volatile pte_t read_pte = *ptep;
+	atomic64_set((atomic64_t *)ptep,
+			((pte_val(read_pte) & ~(ptval_t)_PAGE_WRITE) | _PAGE_READ));
 #endif
 }
 
