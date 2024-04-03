@@ -10,6 +10,7 @@
 
 #include <asm/page.h>
 #include <linux/const.h>
+#include <asm/usercfi.h>
 
 /* thread information allocation */
 #define THREAD_SIZE_ORDER	CONFIG_THREAD_SIZE_ORDER
@@ -58,6 +59,9 @@ struct thread_info {
 	int			cpu;
 	unsigned long		syscall_work;	/* SYSCALL_WORK_ flags */
 	unsigned long envcfg;
+#ifdef CONFIG_RISCV_USER_CFI
+	struct cfi_status user_cfi_state;
+#endif
 #ifdef CONFIG_RISCV_ISA_POINTER_MASKING
 	u8			pmlen;
 #endif
