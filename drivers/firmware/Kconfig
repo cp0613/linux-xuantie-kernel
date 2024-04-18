@@ -226,6 +226,13 @@ config QCOM_SCM_DOWNLOAD_MODE_DEFAULT
 
 	  Say Y here to enable "download mode" by default.
 
+config RISCV_DBLTRP
+	bool "Enable Double trap handling"
+	depends on RISCV_SBI
+	default n
+	help
+	  Select if you want to enable double trap handler.
+
 config SYSFB
 	bool
 	select BOOT_VESA_SUPPORT
