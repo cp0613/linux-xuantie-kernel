@@ -25,6 +25,7 @@
 #define SR_SPP		_AC(0x00000100, UXL) /* Previously Supervisor */
 #define SR_MPP		_AC(0x00001800, UXL) /* Previously Machine */
 #define SR_SUM		_AC(0x00040000, UXL) /* Supervisor User Memory Access */
+#define SR_SDT		_AC(0x01000000, UXL) /* Supervisor Double Trap */
 
 /* zicfilp landing pad status bit */
 #define SR_SPELP	_AC(0x00800000, UL)

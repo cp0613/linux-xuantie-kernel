@@ -48,17 +48,7 @@ _save_context:
 	REG_S x5,  PT_T0(sp)
 	save_from_x6_to_x31
 
-	/*
-	 * Disable user-mode memory access as it should only be set in the
-	 * actual user copy routines.
-	 *
-	 * Disable the FPU/Vector to detect illegal usage of floating point
-	 * or vector in kernel space.
-	 */
-	li t0, SR_SUM | SR_FS_VS
-
 	PTR_L s0, TASK_TI_USER_SP(tp)
-	csrrc s1, CSR_STATUS, t0
 	/*
 	 * If previous mode was U, capture shadow stack pointer and save it away
 	 * Zero CSR_SSP at the same time for sanitization.
@@ -78,7 +68,6 @@ _save_context:
 	csrr s4, CSR_CAUSE
 	csrr s5, CSR_SCRATCH
 	REG_S s0, PT_SP(sp)
-	REG_S s1, PT_STATUS(sp)
 	REG_S s2, PT_EPC(sp)
 	REG_S s3, PT_BADADDR(sp)
 	REG_S s4, PT_CAUSE(sp)
@@ -89,6 +78,21 @@ _save_context:
 	 * occurs, the exception vector knows it came from the kernel
 	 */
 	csrw CSR_SCRATCH, x0
+
+	/*
+	 * Disable user-mode memory access as it should only be set in the
+	 * actual user copy routines.
+	 *
+	 * Disable the FPU/Vector to detect illegal usage of floating point
+	 * or vector in kernel space.
+	 *
+	 * Clear supervisor double trap bit as all trap context is saved and we
+	 * can handle another one
+	 */
+	li t0, SR_SUM | SR_FS_VS | SR_SDT
+
+	csrrc s1, CSR_STATUS, t0
+	REG_S s1, PT_STATUS(sp)
 
 	/* Load the global pointer */
 .option push
@@ -131,15 +135,20 @@ SYM_CODE_START_NOALIGN(ret_from_exception)
 #ifdef CONFIG_RISCV_M_MODE
 	/* the MPP value is too large to be used as an immediate arg for addi */
 	li t0, SR_MPP
-	and s0, s0, t0
+	and t1, s0, t0
 #else
-	andi s0, s0, SR_SPP
+	andi t1, s0, SR_SPP
 #endif
-	bnez s0, 1f
+	/*
+	 * Restore STATUS now to set supervisor double trap bit which means that
+	 * from now on, we can not handle an exception up to "sret"
+	 */
+	csrw CSR_STATUS, s0
+	bnez t1, 1f
 
 	/* Save unwound kernel stack pointer in thread_info */
-	addi s0, sp, PT_SIZE_ON_STACK
-	PTR_S s0, TASK_TI_KERNEL_SP(tp)
+	addi t1, sp, PT_SIZE_ON_STACK
+	PTR_S t1, TASK_TI_KERNEL_SP(tp)
 
 	/*
 	 * Save TP into the scratch register , so we can find the kernel data
@@ -180,7 +189,6 @@ SYM_CODE_START_NOALIGN(ret_from_exception)
 	REG_L  a2, PT_EPC(sp)
 	REG_SC x0, a2, PT_EPC(sp)
 
-	csrw CSR_STATUS, a0
 	csrw CSR_EPC, a2
 
 	REG_L x1,  PT_RA(sp)
