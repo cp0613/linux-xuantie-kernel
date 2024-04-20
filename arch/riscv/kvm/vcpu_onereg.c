@@ -107,15 +107,6 @@ static bool kvm_riscv_vcpu_isa_enable_allowed(unsigned long ext)
 	switch (ext) {
 	case KVM_RISCV_ISA_EXT_H:
 		return false;
-	case KVM_RISCV_ISA_EXT_SSCOFPMF:
-		/* Sscofpmf depends on interrupt filtering defined in ssaia */
-		return __riscv_isa_extension_available(NULL, RISCV_ISA_EXT_SSAIA);
-	case KVM_RISCV_ISA_EXT_SVADU:
-		/*
-		 * The henvcfg.ADUE is read-only zero if menvcfg.ADUE is zero.
-		 * Guest OS can use Svadu only when host OS enable Svadu.
-		 */
-		return arch_has_hw_pte_young();
 	case KVM_RISCV_ISA_EXT_V:
 		return riscv_v_vstate_ctrl_user_allowed();
 	default:
@@ -133,6 +124,7 @@ static bool kvm_riscv_vcpu_isa_disable_allowed(unsigned long ext)
 	case KVM_RISCV_ISA_EXT_C:
 	case KVM_RISCV_ISA_EXT_I:
 	case KVM_RISCV_ISA_EXT_M:
+	/* There is not architectural config bit to disable sscofpmf completely */
 	case KVM_RISCV_ISA_EXT_SSTC:
 	case KVM_RISCV_ISA_EXT_SVINVAL:
 	case KVM_RISCV_ISA_EXT_SVNAPOT:
