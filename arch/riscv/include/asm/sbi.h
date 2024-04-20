@@ -314,7 +314,7 @@ struct sbi_sta_struct {
 	u8 pad[47];
 } __packed;
 
-#define SBI_STA_SHMEM_DISABLE		-1
+#define SBI_SHMEM_DISABLE		-1
 
 /* SBI function IDs for FW feature extension */
 #define SBI_EXT_FWFT_SET		0x0
