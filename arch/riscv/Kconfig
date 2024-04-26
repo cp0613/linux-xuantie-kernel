@@ -573,7 +573,6 @@ config TOOLCHAIN_HAS_ZAWRS
 config RISCV_ISA_ZAWRS
 	bool "Zawrs extension support for more efficient busy waiting"
 	depends on RISCV_ALTERNATIVE
-	depends on TOOLCHAIN_HAS_ZAWRS
 	default y
 	help
 	  The Zawrs extension defines instructions to be used in polling loops

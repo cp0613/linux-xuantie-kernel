@@ -434,7 +434,7 @@
  * interrupt, or because it has been configured to raise an illegal
  * instruction exception.
  */
-static __always_inline void __cmpwait(void *ptr,
+static __always_inline void __cmpwait(volatile void *ptr,
 				      unsigned long val,
 				      int size)
 {
