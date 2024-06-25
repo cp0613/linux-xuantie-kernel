@@ -154,8 +154,10 @@ void flush_thread(void)
 	memset(&current->thread.vstate, 0, sizeof(struct __riscv_v_ext_state));
 #endif
 #ifdef CONFIG_RISCV_ISA_POINTER_MASKING
-	if (riscv_has_extension_unlikely(RISCV_ISA_EXT_SUPM))
+	if (riscv_has_extension_unlikely(RISCV_ISA_EXT_SUPM)) {
 		envcfg_update_bits(current, ENVCFG_PMM, ENVCFG_PMM_PMLEN_0);
+		current->thread_info.pmlen = 0;
+	}
 #endif
 }
 
@@ -182,6 +184,12 @@ int copy_thread(struct task_struct *p, const struct kernel_clone_args *args)
 	unsigned long usp = args->stack;
 	unsigned long tls = args->tls;
 	struct pt_regs *childregs = task_pt_regs(p);
+
+#ifdef CONFIG_RISCV_ISA_POINTER_MASKING
+	/* Ensure all threads in this mm have the same pointer masking mode. */
+	if (p->mm && (clone_flags & CLONE_VM))
+		set_bit(MM_CONTEXT_LOCK_PMLEN, &p->mm->context.flags);
+#endif
 
 	memset(&p->thread.s, 0, sizeof(p->thread.s));
 
@@ -226,10 +234,16 @@ early_param("force_task_2gb", force_task_2gb);
 static bool have_user_pmlen_7;
 static bool have_user_pmlen_16;
 
+/*
+ * Control the relaxed ABI allowing tagged user addresses into the kernel.
+ */
+static unsigned int tagged_addr_disabled;
+
 long set_tagged_addr_ctrl(struct task_struct *task, unsigned long arg)
 {
-	unsigned long valid_mask = PR_PMLEN_MASK;
+	unsigned long valid_mask = PR_PMLEN_MASK | PR_TAGGED_ADDR_ENABLE;
 	struct thread_info *ti = task_thread_info(task);
+	struct mm_struct *mm = task->mm;
 	unsigned long pmm;
 	u8 pmlen;
 
@@ -260,6 +274,14 @@ long set_tagged_addr_ctrl(struct task_struct *task, unsigned long arg)
 			return -EINVAL;
 	}
 
+	/*
+	 * Do not allow the enabling of the tagged address ABI if globally
+	 * disabled via sysctl abi.tagged_addr_disabled, if pointer masking
+	 * is disabled for userspace.
+	 */
+	if (arg & PR_TAGGED_ADDR_ENABLE && (tagged_addr_disabled || !pmlen))
+		return -EINVAL;
+
 	if (pmlen == 7)
 		pmm = ENVCFG_PMM_PMLEN_7;
 	else if (pmlen == 16)
@@ -267,7 +289,22 @@ long set_tagged_addr_ctrl(struct task_struct *task, unsigned long arg)
 	else
 		pmm = ENVCFG_PMM_PMLEN_0;
 
+	if (!(arg & PR_TAGGED_ADDR_ENABLE))
+		pmlen = 0;
+
+	if (mmap_write_lock_killable(mm))
+		return -EINTR;
+
+	if (test_bit(MM_CONTEXT_LOCK_PMLEN, &mm->context.flags) && mm->context.pmlen != pmlen) {
+		mmap_write_unlock(mm);
+		return -EBUSY;
+	}
+
 	envcfg_update_bits(task, ENVCFG_PMM, pmm);
+	task->mm->context.pmlen = pmlen;
+	task->thread_info.pmlen = pmlen;
+
+	mmap_write_unlock(mm);
 
 	return 0;
 }
@@ -280,6 +317,13 @@ long get_tagged_addr_ctrl(struct task_struct *task)
 	if (test_ti_thread_flag(ti, TIF_32BIT))
 		return -EINVAL;
 
+	if (task->thread_info.pmlen)
+		ret = PR_TAGGED_ADDR_ENABLE;
+
+	/*
+	 * The task's pmlen is only set if the tagged address ABI is enabled,
+	 * so the effective PMLEN must be extracted from envcfg.PMM.
+	 */
 	switch (task->thread_info.envcfg & ENVCFG_PMM) {
 	case ENVCFG_PMM_PMLEN_7:
 		ret |= FIELD_PREP(PR_PMLEN_MASK, 7);
@@ -298,6 +342,24 @@ static bool try_to_set_pmm(unsigned long value)
 	return (csr_read_clear(CSR_ENVCFG, ENVCFG_PMM) & ENVCFG_PMM) == value;
 }
 
+/*
+ * Global sysctl to disable the tagged user addresses support. This control
+ * only prevents the tagged address ABI enabling via prctl() and does not
+ * disable it for tasks that already opted in to the relaxed ABI.
+ */
+
+static struct ctl_table tagged_addr_sysctl_table[] = {
+	{
+		.procname	= "tagged_addr_disabled",
+		.mode		= 0644,
+		.data		= &tagged_addr_disabled,
+		.maxlen		= sizeof(int),
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_ONE,
+	},
+};
+
 static int __init tagged_addr_init(void)
 {
 	if (!riscv_has_extension_unlikely(RISCV_ISA_EXT_SUPM))
@@ -310,6 +372,9 @@ static int __init tagged_addr_init(void)
 	csr_clear(CSR_ENVCFG, ENVCFG_PMM);
 	have_user_pmlen_7 = try_to_set_pmm(ENVCFG_PMM_PMLEN_7);
 	have_user_pmlen_16 = try_to_set_pmm(ENVCFG_PMM_PMLEN_16);
+
+	if (!register_sysctl("abi", tagged_addr_sysctl_table))
+		return -EINVAL;
 
 	return 0;
 }
