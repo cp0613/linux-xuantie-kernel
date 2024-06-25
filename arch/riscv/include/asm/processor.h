@@ -8,6 +8,7 @@
 
 #include <linux/const.h>
 #include <linux/cache.h>
+#include <linux/prctl.h>
 
 #include <vdso/processor.h>
 
@@ -148,6 +149,14 @@ extern unsigned long signal_minsigstksz __ro_after_init;
 extern long riscv_v_vstate_ctrl_set_current(unsigned long arg);
 extern long riscv_v_vstate_ctrl_get_current(void);
 #endif /* CONFIG_RISCV_ISA_V */
+
+#ifdef CONFIG_RISCV_ISA_POINTER_MASKING
+/* PR_{SET,GET}_TAGGED_ADDR_CTRL prctl */
+long set_tagged_addr_ctrl(struct task_struct *task, unsigned long arg);
+long get_tagged_addr_ctrl(struct task_struct *task);
+#define SET_TAGGED_ADDR_CTRL(arg)	set_tagged_addr_ctrl(current, arg)
+#define GET_TAGGED_ADDR_CTRL()		get_tagged_addr_ctrl(current)
+#endif
 
 #endif /* __ASSEMBLY__ */
 
