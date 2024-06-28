@@ -191,6 +191,70 @@ int parse_cbm(struct rdt_parse_data *data, struct resctrl_schema *s,
 	return 0;
 }
 
+/*
+ * For each domain in this resource we expect to find a series of:
+ *	id=mask
+ * separated by ";". The "id" is in decimal, and must match one of
+ * the "id"s for this resource.
+ */
+static int parse_line(char *line, struct resctrl_schema *s,
+		      struct rdtgroup *rdtgrp)
+{
+	enum resctrl_conf_type t = s->conf_type;
+	struct resctrl_staged_config *cfg;
+	struct rdt_resource *r = s->res;
+	struct rdt_parse_data data;
+	char *dom = NULL, *id;
+	struct rdt_domain *d;
+	unsigned long dom_id;
+
+	/* Walking r->domains, ensure it can't race with cpuhp */
+	lockdep_assert_cpus_held();
+
+	if (rdtgrp->mode == RDT_MODE_PSEUDO_LOCKSETUP &&
+	    (r->rid == RDT_RESOURCE_MBA || r->rid == RDT_RESOURCE_SMBA)) {
+		rdt_last_cmd_puts("Cannot pseudo-lock MBA resource\n");
+		return -EINVAL;
+	}
+
+next:
+	if (!line || line[0] == '\0')
+		return 0;
+	dom = strsep(&line, ";");
+	id = strsep(&dom, "=");
+	if (!dom || kstrtoul(id, 10, &dom_id)) {
+		rdt_last_cmd_puts("Missing '=' or non-numeric domain\n");
+		return -EINVAL;
+	}
+	dom = strim(dom);
+	list_for_each_entry(d, &r->ctrl_domains, hdr.list) {
+		if (d->hdr.id == dom_id) {
+			data.buf = dom;
+			data.rdtgrp = rdtgrp;
+			if (r->parse_ctrlval(&data, s, d))
+				return -EINVAL;
+			if (rdtgrp->mode ==  RDT_MODE_PSEUDO_LOCKSETUP) {
+				cfg = &d->staged_config[t];
+				/*
+				 * In pseudo-locking setup mode and just
+				 * parsed a valid CBM that should be
+				 * pseudo-locked. Only one locked region per
+				 * resource group and domain so just do
+				 * the required initialization for single
+				 * region and return.
+				 */
+				rdtgrp->plr->s = s;
+				rdtgrp->plr->d = d;
+				rdtgrp->plr->cbm = cfg->new_ctrl;
+				d->plr = rdtgrp->plr;
+				return 0;
+			}
+			goto next;
+		}
+	}
+	return -EINVAL;
+}
+
 static u32 get_config_index(u32 closid, enum resctrl_conf_type type)
 {
 	switch (type) {
@@ -254,8 +318,7 @@ int resctrl_arch_update_domains(struct rdt_resource *r, u32 closid)
 	if (!zalloc_cpumask_var(&cpu_mask, GFP_KERNEL))
 		return -ENOMEM;
 
-	msr_param.res = NULL;
-	list_for_each_entry(d, &r->domains, list) {
+	list_for_each_entry(d, &r->ctrl_domains, hdr.list) {
 		hw_dom = resctrl_to_arch_dom(d);
 		for (t = 0; t < CDP_NUM_TYPES; t++) {
 			cfg = &hw_dom->d_resctrl.staged_config[t];
@@ -296,4 +359,163 @@ u32 resctrl_arch_get_config(struct rdt_resource *r, struct rdt_domain *d,
 	u32 idx = get_config_index(closid, type);
 
 	return hw_dom->ctrl_val[idx];
+}
+
+static void show_doms(struct seq_file *s, struct resctrl_schema *schema, int closid)
+{
+	struct rdt_resource *r = schema->res;
+	struct rdt_domain *dom;
+	bool sep = false;
+	u32 ctrl_val;
+
+	/* Walking r->domains, ensure it can't race with cpuhp */
+	lockdep_assert_cpus_held();
+
+	seq_printf(s, "%*s:", max_name_width, schema->name);
+	list_for_each_entry(dom, &r->ctrl_domains, hdr.list) {
+		if (sep)
+			seq_puts(s, ";");
+
+		if (is_mba_sc(r))
+			ctrl_val = dom->mbps_val[closid];
+		else
+			ctrl_val = resctrl_arch_get_config(r, dom, closid,
+							   schema->conf_type);
+
+		seq_printf(s, r->format_str, dom->hdr.id, max_data_width,
+			   ctrl_val);
+		sep = true;
+	}
+	seq_puts(s, "\n");
+}
+
+int rdtgroup_schemata_show(struct kernfs_open_file *of,
+			   struct seq_file *s, void *v)
+{
+	struct resctrl_schema *schema;
+	struct rdtgroup *rdtgrp;
+	int ret = 0;
+	u32 closid;
+
+	rdtgrp = rdtgroup_kn_lock_live(of->kn);
+	if (rdtgrp) {
+		if (rdtgrp->mode == RDT_MODE_PSEUDO_LOCKSETUP) {
+			list_for_each_entry(schema, &resctrl_schema_all, list) {
+				seq_printf(s, "%s:uninitialized\n", schema->name);
+			}
+		} else if (rdtgrp->mode == RDT_MODE_PSEUDO_LOCKED) {
+			if (!rdtgrp->plr->d) {
+				rdt_last_cmd_clear();
+				rdt_last_cmd_puts("Cache domain offline\n");
+				ret = -ENODEV;
+			} else {
+				seq_printf(s, "%s:%d=%x\n",
+					   rdtgrp->plr->s->res->name,
+					   rdtgrp->plr->d->hdr.id,
+					   rdtgrp->plr->cbm);
+			}
+		} else {
+			closid = rdtgrp->closid;
+			list_for_each_entry(schema, &resctrl_schema_all, list) {
+				if (closid < schema->num_closid)
+					show_doms(s, schema, closid);
+			}
+		}
+	} else {
+		ret = -ENOENT;
+	}
+	rdtgroup_kn_unlock(of->kn);
+	return ret;
+}
+
+static int smp_mon_event_count(void *arg)
+{
+	mon_event_count(arg);
+
+	return 0;
+}
+
+void mon_event_read(struct rmid_read *rr, struct rdt_resource *r,
+		    struct rdt_domain *d, struct rdtgroup *rdtgrp,
+		    int evtid, int first)
+{
+	int cpu;
+
+	/* When picking a CPU from cpu_mask, ensure it can't race with cpuhp */
+	lockdep_assert_cpus_held();
+
+	/*
+	 * Setup the parameters to pass to mon_event_count() to read the data.
+	 */
+	rr->rgrp = rdtgrp;
+	rr->evtid = evtid;
+	rr->r = r;
+	rr->d = d;
+	rr->val = 0;
+	rr->first = first;
+	rr->arch_mon_ctx = resctrl_arch_mon_ctx_alloc(r, evtid);
+	if (IS_ERR(rr->arch_mon_ctx)) {
+		rr->err = -EINVAL;
+		return;
+	}
+
+	cpu = cpumask_any_housekeeping(&d->hdr.cpu_mask, RESCTRL_PICK_ANY_CPU);
+
+	/*
+	 * cpumask_any_housekeeping() prefers housekeeping CPUs, but
+	 * are all the CPUs nohz_full? If yes, pick a CPU to IPI.
+	 * MPAM's resctrl_arch_rmid_read() is unable to read the
+	 * counters on some platforms if its called in IRQ context.
+	 */
+	if (tick_nohz_full_cpu(cpu))
+		smp_call_function_any(&d->hdr.cpu_mask, mon_event_count, rr, 1);
+	else
+		smp_call_on_cpu(cpu, smp_mon_event_count, rr, false);
+
+	resctrl_arch_mon_ctx_free(r, evtid, rr->arch_mon_ctx);
+}
+
+int rdtgroup_mondata_show(struct seq_file *m, void *arg)
+{
+	struct kernfs_open_file *of = m->private;
+	struct rdt_domain_hdr *hdr;
+	u32 resid, evtid, domid;
+	struct rdtgroup *rdtgrp;
+	struct rdt_resource *r;
+	union mon_data_bits md;
+	struct rdt_domain *d;
+	struct rmid_read rr;
+	int ret = 0;
+
+	rdtgrp = rdtgroup_kn_lock_live(of->kn);
+	if (!rdtgrp) {
+		ret = -ENOENT;
+		goto out;
+	}
+
+	md.priv = of->kn->priv;
+	resid = md.u.rid;
+	domid = md.u.domid;
+	evtid = md.u.evtid;
+
+	r = &rdt_resources_all[resid].r_resctrl;
+	hdr = rdt_find_domain(&r->mon_domains, domid, NULL);
+	if (!hdr || WARN_ON_ONCE(hdr->type != RESCTRL_MON_DOMAIN)) {
+		ret = -ENOENT;
+		goto out;
+	}
+	d = container_of(hdr, struct rdt_domain, hdr);
+
+	mon_event_read(&rr, r, d, rdtgrp, evtid, false);
+
+	if (rr.err == -EIO)
+		seq_puts(m, "Error\n");
+	else if (rr.err == -EINVAL)
+		seq_puts(m, "Unavailable\n");
+	else
+		seq_printf(m, "%llu\n", rr.val);
+
+out:
+	rdtgroup_kn_unlock(of->kn);
+	return ret;
 }
