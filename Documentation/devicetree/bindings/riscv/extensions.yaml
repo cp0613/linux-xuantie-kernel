@@ -184,6 +184,13 @@ properties:
             guarantee on LR/SC sequences, as introduced in the riscv profiles
             specification v0.9.2.
 
+        - const: svvptc
+          description:
+            The standard Svvptc supervisor-level extension for
+            address-translation cache behaviour with respect to invalid entries
+            as ratified at commit 4a69197e5617 ("Update to ratified state") of
+            riscv-svvptc.
+
         - const: zba
           description: |
             The standard Zba bit-manipulation extension for address generation
