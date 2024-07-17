@@ -178,6 +178,12 @@ properties:
             ratified in commit 98918c844281 ("Merge pull request #1217 from
             riscv/zawrs") of riscv-isa-manual.
 
+        - const: ziccrse
+          description:
+            The standard Ziccrse extension which provides forward progress
+            guarantee on LR/SC sequences, as introduced in the riscv profiles
+            specification v0.9.2.
+
         - const: zba
           description: |
             The standard Zba bit-manipulation extension for address generation
