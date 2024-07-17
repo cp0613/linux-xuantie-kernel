@@ -72,6 +72,9 @@ endif
 # Check if the toolchain supports Zacas
 riscv-march-$(CONFIG_TOOLCHAIN_HAS_ZACAS) := $(riscv-march-y)_zacas
 
+# Check if the toolchain supports Zabha
+riscv-march-$(CONFIG_TOOLCHAIN_HAS_ZABHA) := $(riscv-march-y)_zabha
+
 # XUANTIE ISA
 riscv-march-$(CONFIG_XUANTIE_ISA) := $(riscv-march-y)_xtheadc
 

@@ -77,6 +77,7 @@
 #define RISCV_ISA_EXT_ZVKT		65
 
 #define RISCV_ISA_EXT_ZACAS		67
+#define RISCV_ISA_EXT_ZABHA		68
 
 #define RISCV_ISA_EXT_ZAWRS		85
 
