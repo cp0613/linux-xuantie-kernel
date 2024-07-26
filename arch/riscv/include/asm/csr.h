@@ -236,6 +236,7 @@
 #define ENVCFG_PMM_PMLEN_0		_AC(0x000000000, ULL)
 #define ENVCFG_PMM_PMLEN_7		_AC(0x200000000, ULL)
 #define ENVCFG_PMM_PMLEN_16		_AC(0x300000000, ULL)
+#define ENVCFG_ADUE			(_AC(1, ULL) << 61)
 #define ENVCFG_CBZE			(_AC(1, UL) << 7)
 #define ENVCFG_CBCFE			(_AC(1, UL) << 6)
 #define ENVCFG_LPE			(_AC(1, UL) << 2)
