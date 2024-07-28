@@ -90,7 +90,6 @@ static struct iommufd_group *iommufd_get_group(struct iommufd_ctx *ictx,
 	kref_init(&new_igroup->ref);
 	mutex_init(&new_igroup->lock);
 	INIT_LIST_HEAD(&new_igroup->device_list);
-	new_igroup->sw_msi_start = PHYS_ADDR_MAX;
 	/* group reference moves into new_igroup */
 	new_igroup->group = group;
 
@@ -293,64 +292,6 @@ u32 iommufd_device_to_id(struct iommufd_device *idev)
 }
 EXPORT_SYMBOL_NS_GPL(iommufd_device_to_id, IOMMUFD);
 
-static int iommufd_group_setup_msi(struct iommufd_group *igroup,
-				   struct iommufd_hwpt_paging *hwpt_paging)
-{
-	phys_addr_t sw_msi_start = igroup->sw_msi_start;
-	int rc;
-
-	/*
-	 * If the IOMMU driver gives a IOMMU_RESV_SW_MSI then it is asking us to
-	 * call iommu_get_msi_cookie() on its behalf. This is necessary to setup
-	 * the MSI window so iommu_dma_prepare_msi() can install pages into our
-	 * domain after request_irq(). If it is not done interrupts will not
-	 * work on this domain.
-	 *
-	 * FIXME: This is conceptually broken for iommufd since we want to allow
-	 * userspace to change the domains, eg switch from an identity IOAS to a
-	 * DMA IOAS. There is currently no way to create a MSI window that
-	 * matches what the IRQ layer actually expects in a newly created
-	 * domain.
-	 */
-	if (sw_msi_start != PHYS_ADDR_MAX && !hwpt_paging->msi_cookie) {
-		rc = iommu_get_msi_cookie(hwpt_paging->common.domain,
-					  sw_msi_start);
-		if (rc)
-			return rc;
-
-		/*
-		 * iommu_get_msi_cookie() can only be called once per domain,
-		 * it returns -EBUSY on later calls.
-		 */
-		hwpt_paging->msi_cookie = true;
-	}
-	return 0;
-}
-
-static int iommufd_hwpt_paging_attach(struct iommufd_hwpt_paging *hwpt_paging,
-				      struct iommufd_device *idev)
-{
-	int rc;
-
-	lockdep_assert_held(&idev->igroup->lock);
-
-	rc = iopt_table_enforce_dev_resv_regions(&hwpt_paging->ioas->iopt,
-						 idev->dev,
-						 &idev->igroup->sw_msi_start);
-	if (rc)
-		return rc;
-
-	if (list_empty(&idev->igroup->device_list)) {
-		rc = iommufd_group_setup_msi(idev->igroup, hwpt_paging);
-		if (rc) {
-			iopt_remove_reserved_iova(&hwpt_paging->ioas->iopt,
-						  idev->dev);
-			return rc;
-		}
-	}
-	return 0;
-}
-
 int iommufd_hw_pagetable_attach(struct iommufd_hw_pagetable *hwpt,
 				struct iommufd_device *idev)
 {
@@ -364,7 +305,8 @@ int iommufd_hw_pagetable_attach(struct iommufd_hw_pagetable *hwpt,
 	}
 
 	if (hwpt_is_paging(hwpt)) {
-		rc = iommufd_hwpt_paging_attach(to_hwpt_paging(hwpt), idev);
+		rc = iopt_table_enforce_dev_resv_regions(
+				&to_hwpt_paging(hwpt)->ioas->iopt, idev->dev);
 		if (rc)
 			goto err_unlock;
 	}
@@ -453,15 +395,12 @@ iommufd_group_do_replace_paging(struct iommufd_group *igroup,
 	    hwpt_paging->ioas != to_hwpt_paging(old_hwpt)->ioas) {
 		list_for_each_entry(cur, &igroup->device_list, group_item) {
 			rc = iopt_table_enforce_dev_resv_regions(
-				&hwpt_paging->ioas->iopt, cur->dev, NULL);
+				&hwpt_paging->ioas->iopt, cur->dev);
 			if (rc)
 				goto err_unresv;
 		}
 	}
 
-	rc = iommufd_group_setup_msi(igroup, hwpt_paging);
-	if (rc)
-		goto err_unresv;
 	return 0;
 
 err_unresv:

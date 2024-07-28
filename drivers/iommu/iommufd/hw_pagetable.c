@@ -82,6 +82,42 @@ iommufd_hwpt_paging_enforce_cc(struct iommufd_hwpt_paging *hwpt_paging)
 	return 0;
 }
 
+static int
+iommufd_hwpt_paging_enforce_sw_msi(struct iommufd_hwpt_paging *hwpt_paging,
+				   struct iommufd_device *idev)
+{
+	struct iommu_domain *domain = hwpt_paging->common.domain;
+	struct io_pagetable *iopt = &hwpt_paging->ioas->iopt;
+	phys_addr_t sw_msi_start = PHYS_ADDR_MAX;
+	struct iommu_resv_region *resv;
+	LIST_HEAD(resv_regions);
+	int rc = 0;
+
+	if (iommufd_should_fail())
+		return -EINVAL;
+
+	/* FIXME: drivers allocate memory but there is no failure propogated */
+	iommu_get_resv_regions(idev->dev, &resv_regions);
+	list_for_each_entry(resv, &resv_regions, list) {
+		if (resv->type != IOMMU_RESV_SW_MSI)
+			continue;
+		down_write(&iopt->iova_rwsem);
+		/* owner=domain so that abort/destroy() can clean it up */
+		rc = iopt_reserve_iova(iopt, resv->start,
+				       resv->length - 1 + resv->start, domain);
+		up_write(&iopt->iova_rwsem);
+		if (!rc)
+			sw_msi_start = resv->start;
+		break;
+	}
+	iommu_put_resv_regions(idev->dev, &resv_regions);
+
+	if (sw_msi_start == PHYS_ADDR_MAX)
+		return rc;
+
+	return iommu_get_msi_cookie(domain, sw_msi_start);
+}
+
 /**
  * iommufd_hwpt_paging_alloc() - Get a PAGING iommu_domain for a device
  * @ictx: iommufd context
@@ -168,6 +204,15 @@ iommufd_hwpt_paging_alloc(struct iommufd_ctx *ictx, struct iommufd_ioas *ioas,
 		if (WARN_ON(rc))
 			goto out_abort;
 	}
+
+	/*
+	 * IOMMU_RESV_SW_MSI is a universal per-IOMMU IOVA region arbitrarily
+	 * defined by a driver. Any hw_pagetable that is allocated for such an
+	 * IOMMU must enforce the region in its reserved space.
+	 */
+	rc = iommufd_hwpt_paging_enforce_sw_msi(hwpt_paging, idev);
+	if (rc)
+		goto out_abort;
 
 	/*
 	 * immediate_attach exists only to accommodate iommu drivers that cannot
