@@ -31,28 +31,49 @@ static void aplic_msi_irq_mask(struct irq_data *d)
 	irq_chip_mask_parent(d);
 }
 
-static void aplic_msi_irq_eoi(struct irq_data *d)
+static void aplic_msi_irq_retrigger_level(struct irq_data *d)
 {
 	struct aplic_priv *priv = irq_data_get_irq_chip_data(d);
-	u32 reg_off, reg_mask;
 
-	/*
-	 * EOI handling only required only for level-triggered
-	 * interrupts in APLIC MSI mode.
-	 */
-
-	reg_off = APLIC_CLRIP_BASE + ((d->hwirq / APLIC_IRQBITS_PER_REG) * 4);
-	reg_mask = BIT(d->hwirq % APLIC_IRQBITS_PER_REG);
 	switch (irqd_get_trigger_type(d)) {
 	case IRQ_TYPE_LEVEL_LOW:
-		if (!(readl(priv->regs + reg_off) & reg_mask))
-			writel(d->hwirq, priv->regs + APLIC_SETIPNUM_LE);
-		break;
 	case IRQ_TYPE_LEVEL_HIGH:
-		if (readl(priv->regs + reg_off) & reg_mask)
-			writel(d->hwirq, priv->regs + APLIC_SETIPNUM_LE);
+		/*
+		 * The section "4.9.2 Special consideration for level-sensitive interrupt
+		 * sources" of the RISC-V AIA specification says:
+		 *
+		 * A second option is for the interrupt service routine to write the
+		 * APLIC’s source identity number for the interrupt to the domain’s
+		 * setipnum register just before exiting. This will cause the interrupt’s
+		 * pending bit to be set to one again if the source is still asserting
+		 * an interrupt, but not if the source is not asserting an interrupt.
+		 */
+		writel(d->hwirq, priv->regs + APLIC_SETIPNUM_LE);
 		break;
 	}
+}
+
+static void aplic_msi_irq_eoi(struct irq_data *d)
+{
+	/*
+	 * EOI handling is required only for level-triggered interrupts
+	 * when APLIC is in MSI mode.
+	 */
+	aplic_msi_irq_retrigger_level(d);
+}
+
+static int aplic_msi_irq_set_type(struct irq_data *d, unsigned int type)
+{
+	int rc = aplic_irq_set_type(d, type);
+
+	if (rc)
+		return rc;
+	/*
+	 * Updating sourcecfg register for level-triggered interrupts
+	 * requires interrupt retriggering when APLIC is in MSI mode.
+	 */
+	aplic_msi_irq_retrigger_level(d);
+	return 0;
 }
 
 static void aplic_msi_write_msg(struct irq_data *d, struct msi_msg *msg)
@@ -128,7 +149,7 @@ static const struct msi_domain_template aplic_msi_template = {
 		.name			= "APLIC-MSI",
 		.irq_mask		= aplic_msi_irq_mask,
 		.irq_unmask		= aplic_msi_irq_unmask,
-		.irq_set_type		= aplic_irq_set_type,
+		.irq_set_type		= aplic_msi_irq_set_type,
 		.irq_eoi		= aplic_msi_irq_eoi,
 #ifdef CONFIG_SMP
 		.irq_set_affinity	= irq_chip_set_affinity_parent,
