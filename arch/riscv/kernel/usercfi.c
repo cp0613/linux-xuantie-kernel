@@ -66,7 +66,8 @@ void set_shstk_status(struct task_struct *task, bool enable)
 	else
 		task->thread_info.envcfg &= ~ENVCFG_SSE;
 
-	csr_write(CSR_ENVCFG, task->thread_info.envcfg);
+	if (riscv_has_extension_unlikely(RISCV_ISA_EXT_XLINUXENVCFG))
+		csr_write(CSR_ENVCFG, task->thread_info.envcfg);
 }
 
 void set_shstk_lock(struct task_struct *task)
@@ -93,7 +94,8 @@ void set_indir_lp_status(struct task_struct *task, bool enable)
 	else
 		task->thread_info.envcfg &= ~ENVCFG_LPE;
 
-	csr_write(CSR_ENVCFG, task->thread_info.envcfg);
+	if (riscv_has_extension_unlikely(RISCV_ISA_EXT_XLINUXENVCFG))
+		csr_write(CSR_ENVCFG, task->thread_info.envcfg);
 }
 
 void set_indir_lp_lock(struct task_struct *task)
