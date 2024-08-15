@@ -332,3 +332,5 @@ CONFIG_VFIO_PCI_INTX=y
 CONFIG_VFIO_PCI=m
 # end of VFIO support for PCI devices
 CONFIG_IOMMUFD=m
+# dynamic_debug
+CONFIG_DYNAMIC_DEBUG=y
