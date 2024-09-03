@@ -52,3 +52,8 @@ __SYSCALL(__NR_riscv_flush_icache, sys_riscv_flush_icache)
 #define __NR_riscv_hwprobe (__NR_arch_specific_syscall + 14)
 #endif
 __SYSCALL(__NR_riscv_hwprobe, sys_riscv_hwprobe)
+
+#ifndef __NR_map_shadow_stack
+#define __NR_map_shadow_stack (__NR_arch_specific_syscall + 13)
+#endif
+__SYSCALL(__NR_map_shadow_stack, sys_map_shadow_stack)

@@ -55,7 +55,7 @@
 #endif
 
 #ifndef __NR_map_shadow_stack
-#define __NR_map_shadow_stack 453
+#define __NR_map_shadow_stack 257
 #endif
 
 #define CSR_SSP 0x011
