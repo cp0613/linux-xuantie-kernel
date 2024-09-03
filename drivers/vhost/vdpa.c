@@ -1203,6 +1203,33 @@ static ssize_t vhost_vdpa_chr_write_iter(struct kiocb *iocb,
 	return vhost_chr_write_iter(dev, from);
 }
 
+static int vhost_vdpa_domain_setup_msi(struct vhost_vdpa *v)
+{
+
+	struct vdpa_device *vdpa = v->vdpa;
+	struct device *dma_dev = vdpa_get_dma_dev(vdpa);
+	phys_addr_t sw_msi_start;
+	struct iommu_resv_region *resv;
+	const struct vdpa_config_ops *ops = vdpa->config;
+	LIST_HEAD(resv_regions);
+
+	/* remapping MSI only when manage their own IOVA allocation */
+	if (ops->set_map == NULL && ops->dma_map == NULL)
+		return 0;
+
+	iommu_get_resv_regions(dma_dev, &resv_regions);
+
+	list_for_each_entry(resv, &resv_regions, list) {
+		if (resv->type == IOMMU_RESV_SW_MSI) {
+			sw_msi_start = resv->start;
+			if (sw_msi_start != PHYS_ADDR_MAX)
+				return iommu_get_msi_cookie(v->domain, sw_msi_start);
+		}
+	}
+
+	return 0;
+}
+
 static int vhost_vdpa_alloc_domain(struct vhost_vdpa *v)
 {
 	struct vdpa_device *vdpa = v->vdpa;
@@ -1230,6 +1257,10 @@ static int vhost_vdpa_alloc_domain(struct vhost_vdpa *v)
 		return -EIO;
 
 	ret = iommu_attach_device(v->domain, dma_dev);
+	if (ret)
+		goto err_attach;
+
+	ret = vhost_vdpa_domain_setup_msi(v);
 	if (ret)
 		goto err_attach;
 
