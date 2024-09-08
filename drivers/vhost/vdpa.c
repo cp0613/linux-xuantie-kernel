@@ -25,6 +25,10 @@
 
 #include "vhost.h"
 
+static bool enable_map = true;
+module_param(enable_map, bool, 0444);
+MODULE_PARM_DESC(enable_map, "Enable/disable the device to use designed set_map IOVA map");
+
 enum {
 	VHOST_VDPA_BACKEND_FEATURES =
 	(1ULL << VHOST_BACKEND_F_IOTLB_MSG_V2) |
@@ -800,7 +804,7 @@ static void vhost_vdpa_general_unmap(struct vhost_vdpa *v,
 	const struct vdpa_config_ops *ops = vdpa->config;
 	if (ops->dma_map) {
 		ops->dma_unmap(vdpa, asid, map->start, map->size);
-	} else if (ops->set_map == NULL) {
+	} else if (!enable_map || ops->set_map == NULL) {
 		iommu_unmap(v->domain, map->start, map->size);
 	}
 }
@@ -893,7 +897,7 @@ static int vhost_vdpa_map(struct vhost_vdpa *v, struct vhost_iotlb *iotlb,
 
 	if (ops->dma_map) {
 		r = ops->dma_map(vdpa, asid, iova, size, pa, perm, opaque);
-	} else if (ops->set_map) {
+	} else if (enable_map && ops->set_map) {
 		if (!v->in_batch)
 			r = ops->set_map(vdpa, asid, iotlb);
 	} else {
@@ -921,7 +925,7 @@ static void vhost_vdpa_unmap(struct vhost_vdpa *v,
 
 	vhost_vdpa_iotlb_unmap(v, iotlb, iova, iova + size - 1, asid);
 
-	if (ops->set_map) {
+	if (enable_map && ops->set_map) {
 		if (!v->in_batch)
 			ops->set_map(vdpa, asid, iotlb);
 	}
@@ -1179,7 +1183,7 @@ static int vhost_vdpa_process_iotlb_msg(struct vhost_dev *dev, u32 asid,
 		v->in_batch = true;
 		break;
 	case VHOST_IOTLB_BATCH_END:
-		if (v->in_batch && ops->set_map)
+		if (enable_map && v->in_batch && ops->set_map)
 			ops->set_map(vdpa, asid, iotlb);
 		v->in_batch = false;
 		break;
@@ -1214,7 +1218,7 @@ static int vhost_vdpa_domain_setup_msi(struct vhost_vdpa *v)
 	LIST_HEAD(resv_regions);
 
 	/* remapping MSI only when manage their own IOVA allocation */
-	if (ops->set_map == NULL && ops->dma_map == NULL)
+	if (!enable_map || (ops->set_map == NULL && ops->dma_map == NULL))
 		return 0;
 
 	iommu_get_resv_regions(dma_dev, &resv_regions);
@@ -1239,7 +1243,7 @@ static int vhost_vdpa_alloc_domain(struct vhost_vdpa *v)
 	int ret;
 
 	/* Device want to do DMA by itself */
-	if (ops->set_map || ops->dma_map)
+	if ((enable_map && ops->set_map) || ops->dma_map)
 		return 0;
 
 	bus = dma_dev->bus;
@@ -1489,7 +1493,7 @@ static int vhost_vdpa_probe(struct vdpa_device *vdpa)
 	/* We can't support platform IOMMU device with more than 1
 	 * group or as
 	 */
-	if (!ops->set_map && !ops->dma_map &&
+	if ((!enable_map || (!ops->set_map && !ops->dma_map)) &&
 	    (vdpa->ngroups > 1 || vdpa->nas > 1))
 		return -EOPNOTSUPP;
 
