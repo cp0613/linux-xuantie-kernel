@@ -274,7 +274,7 @@ static int system_has_softdirty(void)
 	 * skip. Fortunately, we know for sure that arm64 does not support
 	 * soft-dirty. So for now, let's just use the arch as a corse guide.
 	 */
-#if defined(__aarch64__)
+#if defined(__aarch64__) || defined(__riscv)
 	return 0;
 #else
 	return 1;
