@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0
+menu "Performance monitoring"
+
+config PERF_EVENTS_XUANTIE_NTRACE
+	tristate "XUANTIE NTRACE events"
+	depends on PERF_EVENTS && ARCH_XUANTIE
+	default y
+	help
+	  Include support for XuanTie uncore performance events.
+
+endmenu
