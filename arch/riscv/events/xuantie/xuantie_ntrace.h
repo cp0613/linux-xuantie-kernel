@@ -8,6 +8,8 @@
 #include <linux/types.h>
 #include <linux/perf_event.h>
 
+#include "xt_ntrace_control_interface.h"
+
 enum XUANTIE_NTRACE_COMPONENT_TYPE {
 	XUANTIE_NTRACE_ENCODER = 0,
 	XUANTIE_NTRACE_FUNNEL,
@@ -66,6 +68,12 @@ struct xuantie_ntrace_component {
 		struct xuantie_ntrace_sink_smem sink;
 	};
 
+	union {
+		struct xt_trace_sink_control_info sink_info;
+		struct xt_trace_funnel_control_info funnel_info;
+		struct xt_trace_encoder_control_info encoder_info;
+	};
+
 	u32 in_num;
 	u32 out_num;
 	struct xuantie_io_port **in;
@@ -73,6 +81,15 @@ struct xuantie_ntrace_component {
 };
 
 extern struct list_head xuantie_ntrace_controllers;
+
+struct xuantie_saved_conifg {
+	u32 _size;
+	u32 inst_mode;
+	u32 src_bits;
+	u32 timestamp_bits;
+	u32 trace_ram_wrap;
+	u32 _align;
+};
 
 struct xuantie_ntrace_pmu {
 	struct pmu		pmu;
