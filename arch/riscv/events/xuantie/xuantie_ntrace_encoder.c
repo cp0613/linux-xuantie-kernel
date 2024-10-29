@@ -26,6 +26,16 @@ static int __init xuantie_ntrace_encoder_init(void)
 	const char *str_tmp;
 	int port_nr;
 	int ret;
+	static const char * const trace_format[] = {"E-trace", "N-Trace", "Reserved2",
+		"Reserved2", "Reserved2", "Reserved2", "Reserved2", "Reserved2", "Vendor-Specific"};
+	static const char * const inst_sync_mode[] = {"Off", "Count Trace Messages/packets",
+		"Count Hart Clock Cycles", "Count Instruction 16-bit half-words"};
+	static const char * const insn_mode[] = {"INST Trace disable", "Protocol defined1",
+		"Protocol defined2", "Branch Trace",	"Protocol defined4", "Protocol defined5",
+		"Branch History Trace", "Vendor-defined"};
+	static const char * const timestamp_mode[] = {"None", "External", "Internal System",
+		"Internal Core", "Shared", "Vendor-Specific5", "Vendor-Specific6",
+		"Vendor-Specific7"};
 
 	for_each_matching_node(node, xuantie_ntrace_encoder_of_match) {
 		if (!of_device_is_available(node)) {
@@ -58,148 +68,132 @@ static int __init xuantie_ntrace_encoder_init(void)
 		}
 		pr_info("cpu=%d\n", component->encoder.cpu);
 
-		ret = of_property_read_string(node, "trace_type",
-					      &component->encoder.trace_type);
+		ret = of_property_read_u32(node, "trace_encoder_format",
+					      &component->encoder.trace_format);
 		if (ret) {
-			pr_err("Failed to read 'trace_type'\n");
+			pr_err("Failed to read 'trace_encoder_format'\n");
 			of_node_put(node);
 			return ret;
 		}
-		pr_info("trace_type=%s\n", component->encoder.trace_type);
+		component->encoder.trace_format &= 0x7;
+		pr_info("trace_encoder_format=%d(%s)\n", component->encoder.trace_format,
+				trace_format[component->encoder.trace_format]);
 
-		ret = of_property_read_string(node, "insn_mode",
-					      &component->encoder.insn_mode);
+		ret = of_property_read_u32(node, "trace_encoder_inst_mode",
+					      &component->encoder.inst_mode);
 		if (ret) {
-			pr_err("Failed to read 'insn_mode'\n");
+			pr_err("Failed to read 'trace_encoder_inst_mode'\n");
 			of_node_put(node);
 			return ret;
 		}
-		pr_info("insn_mode=%s\n", component->encoder.insn_mode);
+		component->encoder.inst_mode &= 7;
+		pr_info("trace_encoder_inst_mode=%d(%s)\n", component->encoder.inst_mode,
+			insn_mode[component->encoder.inst_mode]);
 
-		ret = of_property_read_string(node, "send_context", &str_tmp);
+		ret = of_property_read_string(node, "trace_encoder_context", &str_tmp);
 		if (ret) {
-			pr_err("Failed to read 'send_context'\n");
+			pr_err("Failed to read 'trace_encoder_context'\n");
 			of_node_put(node);
 			return ret;
 		}
 		component->encoder.send_context = strcmp(str_tmp, "true") == 0;
-		pr_info("send_context=%d\n", component->encoder.send_context);
+		pr_info("trace_encoder_context=%d\n", component->encoder.send_context);
 
-		ret = of_property_read_string(node, "enable_src", &str_tmp);
+		ret = of_property_read_string(node, "trace_encoder_inhibit_src", &str_tmp);
 		if (ret) {
-			pr_err("Failed to read 'enable_src'\n");
+			pr_err("Failed to read 'trace_encoder_inhibit_src'\n");
 			of_node_put(node);
 			return ret;
 		}
-		component->encoder.enable_src = strcmp(str_tmp, "true") == 0;
-		pr_info("enable_src=%d\n", component->encoder.enable_src);
+		component->encoder.inhibit_src = strcmp(str_tmp, "true") == 0;
+		pr_info("trace_encoder_inhibit_src=%d\n", component->encoder.inhibit_src);
 
-		ret = of_property_read_u32(node, "src_id",
+		ret = of_property_read_u32(node, "trace_encoder_src_id",
 					   &component->encoder.src_id);
 		if (ret) {
-			pr_err("Failed to read 'src_id'\n");
+			pr_err("Failed to read 'trace_encoder_src_id'\n");
 			of_node_put(node);
 			return ret;
 		}
-		pr_info("src_id=%d\n", component->encoder.src_id);
+		pr_info("trace_encoder_src_id=%d\n", component->encoder.src_id);
 
-		ret = of_property_read_u32(node, "src_bits",
-					   &component->encoder.src_bits);
-		if (ret) {
-			pr_err("Failed to read 'src_bits'\n");
-			of_node_put(node);
-			return ret;
-		}
-		pr_info("src_bits=%d\n", component->encoder.src_bits);
-
-		ret = of_property_read_string(
-			node, "inst_sync_mode",
+		ret = of_property_read_u32(node, "trace_encoder_inst_sync_mode",
 			&component->encoder.inst_sync_mode);
 		if (ret) {
-			pr_err("Failed to read 'inst_sync_mode'\n");
+			pr_err("Failed to read 'trace_encoder_inst_sync_mode'\n");
 			of_node_put(node);
 			return ret;
 		}
-		pr_info("inst_sync_mode=%s\n",
-			component->encoder.inst_sync_mode);
+		component->encoder.inst_sync_mode &= 3;
+		pr_info("trace_encoder_inst_sync_mode=%d(%s)\n", component->encoder.inst_sync_mode,
+			inst_sync_mode[component->encoder.inst_sync_mode]);
 
-		ret = of_property_read_u32(node, "inst_sync_value",
-					   &component->encoder.inst_sync_value);
+		ret = of_property_read_u32(node, "trace_encoder_inst_sync_max",
+					   &component->encoder.inst_sync_max);
 		if (ret) {
-			pr_err("Failed to read 'inst_sync_value'\n");
+			pr_err("Failed to read 'trace_encoder_inst_sync_max'\n");
 			of_node_put(node);
 			return ret;
 		}
-		pr_info("inst_sync_value=0x%x\n",
-			component->encoder.inst_sync_value);
+		pr_info("trace_encoder_inst_sync_max=0x%x\n",
+			component->encoder.inst_sync_max);
 
-		ret = of_property_read_string(node, "enable_cpu_trigger",
+		ret = of_property_read_string(node, "trace_encoder_inst_trigger_enable",
 					      &str_tmp);
 		if (ret) {
-			pr_err("Failed to read 'enable_cpu_trigger'\n");
+			pr_err("Failed to read 'trace_encoder_inst_trigger_enable'\n");
 			of_node_put(node);
 			return ret;
 		}
-		component->encoder.enable_cpu_trigger =
-			strcmp(str_tmp, "true") == 0;
-		pr_info("enable_cpu_trigger=%d\n",
-			component->encoder.enable_cpu_trigger);
+		component->encoder.inst_trigger_enable = strcmp(str_tmp, "true") == 0;
+		pr_info("trace_encoder_inst_trigger_enable=%d\n",
+			component->encoder.inst_trigger_enable);
 
-		ret = of_property_read_string(node, "enable_timestamp",
+		ret = of_property_read_string(node, "trace_timestamp_enable",
 					      &str_tmp);
 		if (ret) {
-			pr_err("Failed to read 'enable_timestamp'\n");
+			pr_err("Failed to read 'trace_timestamp_enable'\n");
 			of_node_put(node);
 			return ret;
 		}
 		component->encoder.enable_timestamp = strcmp(str_tmp, "true") ==
 						      0;
-		pr_info("enable_timestamp=%d\n",
+		pr_info("trace_timestamp_enable=%d\n",
 			component->encoder.enable_timestamp);
 
-		ret = of_property_read_string(node, "timestamp_runindebugmode",
+		ret = of_property_read_string(node, "trace_timestamp_runindebugmode",
 					      &str_tmp);
 		if (ret) {
-			pr_err("Failed to read 'timestamp_runindebugmode'\n");
+			pr_err("Failed to read 'trace_timestamp_runindebugmode'\n");
 			of_node_put(node);
 			return ret;
 		}
 		component->encoder.timestamp_runindebugmode =
 			strcmp(str_tmp, "true") == 0;
-		pr_info("timestamp_runindebugmode=%d\n",
+		pr_info("trace_timestamp_runindebugmode=%d\n",
 			component->encoder.timestamp_runindebugmode);
 
-		ret = of_property_read_string(
-			node, "timestamp_source",
-			&component->encoder.timestamp_source);
-		if (ret) {
-			pr_err("Failed to read 'timestamp_source'\n");
-			of_node_put(node);
-			return ret;
-		}
-		pr_info("timestamp_source=%s\n",
-			component->encoder.timestamp_source);
-
 		ret = of_property_read_u32(
-			node, "timestamp_prescale",
-			&component->encoder.timestamp_prescale);
+			node, "trace_timestamp_mode",
+			&component->encoder.timestamp_mode);
 		if (ret) {
-			pr_err("Failed to read 'timestamp_prescale'\n");
+			pr_err("Failed to read 'trace_timestamp_mode'\n");
 			of_node_put(node);
 			return ret;
 		}
-		pr_info("timestamp_prescale=%d\n",
-			component->encoder.timestamp_prescale);
+		component->encoder.timestamp_mode &= 7;
+		pr_info("trace_timestamp_mode=%d(%s)\n", component->encoder.timestamp_mode,
+			timestamp_mode[component->encoder.timestamp_mode]);
 
-		ret = of_property_read_u32(node, "timestamp_bits",
-					   &component->encoder.timestamp_bits);
+		ret = of_property_read_u32(node, "trace_timestamp_prescale",
+					   &component->encoder.timestamp_prescale);
 		if (ret) {
-			pr_err("Failed to read 'timestamp_bits'\n");
+			pr_err("Failed to read 'trace_timestamp_prescale'\n");
 			of_node_put(node);
 			return ret;
 		}
-		pr_info("timestamp_bits=%d\n",
-			component->encoder.timestamp_bits);
+		pr_info("trace_timestamp_prescale=%d\n",
+			component->encoder.timestamp_prescale);
 
 		child_node = of_get_child_by_name(node, "output_port");
 		if (!child_node) {

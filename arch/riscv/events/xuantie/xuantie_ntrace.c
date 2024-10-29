@@ -27,17 +27,14 @@ build_encoder_config_info(struct xuantie_ntrace_component *component,
 {
 	memset(encoder_config, 0, sizeof(struct xt_trace_encoder_config_info));
 
-	if (strcmp(component->encoder.insn_mode, "history") == 0)
-		encoder_config->inst_mode = 6; // HIST
-	else
-		encoder_config->inst_mode = 3;
+	encoder_config->inst_mode = component->encoder.inst_mode;
 	encoder_config->sennd_context = component->encoder.send_context;
 	encoder_config->inst_trigger_enable =
-		component->encoder.enable_cpu_trigger;
+		component->encoder.inst_trigger_enable;
 	encoder_config->inst_stall_ena = false;
-	encoder_config->inhibit_src = !component->encoder.enable_src;
-	encoder_config->inst_sync_mode = 0; // off
-	encoder_config->inst_sync_max = 4;
+	encoder_config->inhibit_src = component->encoder.inhibit_src;
+	encoder_config->inst_sync_mode = component->encoder.inst_sync_mode;
+	encoder_config->inst_sync_max = component->encoder.inst_sync_max;
 	encoder_config->record_format = 1; // 6MDO+2MESO
 
 	// inst feature: all false
@@ -53,7 +50,6 @@ build_encoder_config_info(struct xuantie_ntrace_component *component,
 	encoder_config->inst_extend_addr_msb = false;
 
 	encoder_config->src_id = component->encoder.src_id;
-	encoder_config->src_bits = component->encoder.src_bits;
 
 	// data trace: disable
 	encoder_config->data_trace_enable = false;
@@ -255,16 +251,13 @@ void xuantie_build_saved_config(struct xuantie_saved_conifg *config,
 
 	/* Save encoder info. */
 	config->_size = sizeof(struct xuantie_saved_conifg);
-	if (strcmp(component->encoder.insn_mode, "history") == 0)
-		config->inst_mode = 6;
-	else
-		config->inst_mode = 3;
-	if (component->encoder.enable_src)
-		config->src_bits = component->encoder.src_bits;
+	config->inst_mode = component->encoder.inst_mode;
+	if (!component->encoder.inhibit_src)
+		config->src_bits = component->encoder_info.default_src_bits;
 	else
 		config->src_bits = 0;
 	if (component->encoder.enable_timestamp)
-		config->timestamp_bits = component->encoder.timestamp_bits;
+		config->timestamp_bits = component->encoder_info.timestamp_width;
 	else
 		config->timestamp_bits = 0;
 

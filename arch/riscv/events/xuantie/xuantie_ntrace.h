@@ -26,23 +26,21 @@ struct xuantie_io_port {
 struct xuantie_ntrace_encoder {
 	//
 	u32 cpu;
-	const char *trace_type;
-	const char *insn_mode;
+	u32 trace_format;
+	u32 inst_mode;
 	bool send_context;
 	//
-	bool enable_src;
+	bool inhibit_src;
 	u32 src_id;
-	u32 src_bits;
 	//
-	const char *inst_sync_mode;
-	u32 inst_sync_value;
-	bool enable_cpu_trigger;
+	u32 inst_sync_mode;
+	u32 inst_sync_max;
+	bool inst_trigger_enable;
 	//
 	bool enable_timestamp;
 	bool timestamp_runindebugmode;
-	const char *timestamp_source;
+	u32 timestamp_mode;
 	u32 timestamp_prescale;
-	u32 timestamp_bits;
 };
 
 struct xuantie_ntrace_funnel {
