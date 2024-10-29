@@ -22,6 +22,7 @@ static int __init xuantie_ntrace_encoder_init(void)
 	struct xuantie_ntrace_component *component;
 	struct device_node *node, *child_node, *port_node;
 	struct xuantie_io_port *io_port;
+	resource_size_t base, size;
 	u32 reg[4];
 	const char *str_tmp;
 	int port_nr;
@@ -54,8 +55,11 @@ static int __init xuantie_ntrace_encoder_init(void)
 			of_node_put(node);
 			return ret;
 		}
-		component->reg_base = (resource_size_t)((u64)reg[0] << 32) | reg[1];
-		component->reg_size = (resource_size_t)((u64)reg[2] << 32) | reg[3];
+		base = (resource_size_t)((u64)reg[0] << 32) | reg[1];
+		size = (resource_size_t)((u64)reg[2] << 32) | reg[3];
+		pr_info("base=0x%llx size=0x%llx\n", (u64)base, (u64)size);
+		component->reg_base = (unsigned long)ioremap(base, size);
+		component->reg_size = size;
 		pr_info("reg_base=0x%llx reg_size=0x%llx\n",
 			(u64)component->reg_base, (u64)component->reg_size);
 

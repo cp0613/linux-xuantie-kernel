@@ -101,11 +101,13 @@ build_sink_config_info(struct xuantie_ntrace_component *component,
 
 static int trace_register_write(u64 addr, u32 value)
 {
+	iowrite32(value, (void __iomem *)(unsigned long)addr);
 	return 0;
 }
 
 static int trace_register_read(u64 addr, u32 *value)
 {
+	*value = ioread32((void __iomem *)(unsigned long)addr);
 	return 0;
 }
 

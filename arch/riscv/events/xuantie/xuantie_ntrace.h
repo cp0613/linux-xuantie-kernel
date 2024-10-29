@@ -56,8 +56,8 @@ struct xuantie_ntrace_sink_smem {
 
 struct xuantie_ntrace_component {
 	enum XUANTIE_NTRACE_COMPONENT_TYPE type;
-	resource_size_t reg_base;
-	resource_size_t reg_size;
+	u64 reg_base;
+	u64 reg_size;
 	struct list_head list;
 
 	union {
