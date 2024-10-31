@@ -332,7 +332,10 @@ struct xt_trace_encoder_control_info {
 // macros for trace component
 #define TR_ANY_CONTROL_ACTIVE0 0
 #define TR_ANY_CONTROL_ACTIVE1 1
+#define TR_ANY_CONTROL_ENABLE0 0
+#define TR_ANY_CONTROL_ENABLE1 1
 #define TR_ANY_CONTROL_GET_ACTIVE(trctrl) ((trctrl)&1)
+#define TR_ANY_CONTROL_GET_ENABLE(trctrl) (((trctrl) >> 1)&1)
 #define TR_ANY_IMPL_OFFSET 0x4
 #define TR_ANY_GET_IMPL_MAIN_VER(trimpl) ((trimpl)&0xf)
 #define TR_ANY_GET_IMPL_MINOR_VER(trimpl) (((trimpl) >> 4) & 0xf)
@@ -387,7 +390,7 @@ struct xt_trace_encoder_control_info {
 #define u32_get_fields(value, field_high, field_low) \
 	((value >> field_low) & (0xffffffff >> (31 - (field_high - field_low))))
 
-#define XT_CHECK_TRANYCONTROL_ACTIVE_TIMES 100
+#define XT_CHECK_TRANYCONTROL_TIMES 2000
 
 /*========================================================================*/
 //  For Configing the Trace Component

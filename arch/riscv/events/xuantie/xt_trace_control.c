@@ -92,6 +92,7 @@ int32_t xt_trace_memory_read(uint64_t addr, uint8_t *buf, uint32_t size)
  */
 int32_t enable_trace_component(uint64_t base_addr)
 {
+	uint32_t i;
 	uint32_t tr_any_control = 0;
 
 	if (xt_trace_register_read(base_addr, &tr_any_control))
@@ -102,7 +103,23 @@ int32_t enable_trace_component(uint64_t base_addr)
 
 	tr_any_control = u32_set_fields(tr_any_control, 1, 1, 1);
 
-	return xt_trace_register_write(base_addr, tr_any_control);
+	if (xt_trace_register_write(base_addr, tr_any_control)) {
+		// return -1;
+	}
+
+	for (i = 0; i < XT_CHECK_TRANYCONTROL_TIMES; i++) {
+		if (xt_trace_register_read(base_addr, &tr_any_control))
+			return -1;
+		if (TR_ANY_CONTROL_GET_ENABLE(tr_any_control) == TR_ANY_CONTROL_ENABLE1)
+			break;
+	}
+
+	if (i == XT_CHECK_TRANYCONTROL_TIMES) {
+		// any msg
+		return -1;
+	}
+
+	return 0;
 }
 
 /*
@@ -120,7 +137,7 @@ uint32_t primary_enable_trace_component(uint64_t base_addr)
 	if (xt_trace_register_write(base_addr, TR_ANY_CONTROL_ACTIVE0))
 		return -1;
 
-	for (i = 0; i < XT_CHECK_TRANYCONTROL_ACTIVE_TIMES; i++) {
+	for (i = 0; i < XT_CHECK_TRANYCONTROL_TIMES; i++) {
 		if (xt_trace_register_read(base_addr, &tr_any_control))
 			return -1;
 		if (TR_ANY_CONTROL_GET_ACTIVE(tr_any_control) ==
@@ -128,7 +145,7 @@ uint32_t primary_enable_trace_component(uint64_t base_addr)
 			break;
 	}
 
-	if (i == XT_CHECK_TRANYCONTROL_ACTIVE_TIMES) {
+	if (i == XT_CHECK_TRANYCONTROL_TIMES) {
 		// any msg
 		return 0;
 	}
@@ -136,7 +153,7 @@ uint32_t primary_enable_trace_component(uint64_t base_addr)
 	if (xt_trace_register_write(base_addr, TR_ANY_CONTROL_ACTIVE1))
 		return -1;
 
-	for (i = 0; i < XT_CHECK_TRANYCONTROL_ACTIVE_TIMES; i++) {
+	for (i = 0; i < XT_CHECK_TRANYCONTROL_TIMES; i++) {
 		if (xt_trace_register_read(base_addr, &tr_any_control))
 			return -1;
 		if (TR_ANY_CONTROL_GET_ACTIVE(tr_any_control) ==
@@ -144,7 +161,7 @@ uint32_t primary_enable_trace_component(uint64_t base_addr)
 			break;
 	}
 
-	if (i == XT_CHECK_TRANYCONTROL_ACTIVE_TIMES) {
+	if (i == XT_CHECK_TRANYCONTROL_TIMES) {
 		// any msg
 		return 0;
 	}
@@ -165,7 +182,7 @@ uint32_t reset_trace_component(uint64_t base_addr)
 	if (xt_trace_register_write(base_addr, TR_ANY_CONTROL_ACTIVE0))
 		return -1;
 
-	for (i = 0; i < XT_CHECK_TRANYCONTROL_ACTIVE_TIMES; i++) {
+	for (i = 0; i < XT_CHECK_TRANYCONTROL_TIMES; i++) {
 		if (xt_trace_register_read(base_addr, &tr_any_control))
 			return -1;
 		if (TR_ANY_CONTROL_GET_ACTIVE(tr_any_control) ==
@@ -173,7 +190,7 @@ uint32_t reset_trace_component(uint64_t base_addr)
 			break;
 	}
 
-	if (i == XT_CHECK_TRANYCONTROL_ACTIVE_TIMES) {
+	if (i == XT_CHECK_TRANYCONTROL_TIMES) {
 		// any msg
 		return -1;
 	}
@@ -331,6 +348,7 @@ xt_trace_funnel_enable(struct xt_trace_funnel_control_info *funnel_info)
  */
 uint32_t disable_trace_component(uint64_t base_addr)
 {
+	uint32_t i;
 	uint32_t tr_any_control = 0;
 
 	if (xt_trace_register_read(base_addr, &tr_any_control))
@@ -341,7 +359,20 @@ uint32_t disable_trace_component(uint64_t base_addr)
 
 	tr_any_control = u32_set_fields(tr_any_control, 1, 1, 0);
 
-	return xt_trace_register_write(base_addr, tr_any_control);
+	if (xt_trace_register_write(base_addr, tr_any_control))
+		return -1;
+	for (i = 0; i < XT_CHECK_TRANYCONTROL_TIMES; i++) {
+		if (xt_trace_register_read(base_addr, &tr_any_control))
+			return -1;
+		if (TR_ANY_CONTROL_GET_ENABLE(tr_any_control) == TR_ANY_CONTROL_ENABLE0)
+			break;
+	}
+	if (i == XT_CHECK_TRANYCONTROL_TIMES) {
+		// any msg
+		return -1;
+	}
+
+	return 0;
 }
 
 TRACE_CONTROL_LIB_API int32_t
@@ -429,7 +460,7 @@ uint32_t close_trace_component(uint64_t base_addr)
 	if (xt_trace_register_write(base_addr, TR_ANY_CONTROL_ACTIVE0))
 		return -1;
 
-	for (i = 0; i < XT_CHECK_TRANYCONTROL_ACTIVE_TIMES; i++) {
+	for (i = 0; i < XT_CHECK_TRANYCONTROL_TIMES; i++) {
 		if (xt_trace_register_read(base_addr, &tr_any_control))
 			return -1;
 		if (TR_ANY_CONTROL_GET_ACTIVE(tr_any_control) ==
@@ -437,7 +468,7 @@ uint32_t close_trace_component(uint64_t base_addr)
 			break;
 	}
 
-	if (i == XT_CHECK_TRANYCONTROL_ACTIVE_TIMES) {
+	if (i == XT_CHECK_TRANYCONTROL_TIMES) {
 		// any msg
 		return -1;
 	}
