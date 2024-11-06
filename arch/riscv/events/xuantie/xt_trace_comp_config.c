@@ -911,6 +911,25 @@ xt_trace_encoder_config(struct xt_trace_encoder_control_info *encoder_info,
 					encoder_info->base_addr);
 				xt_trace_msgout(str);
 				return 1;
+			} else if ((config_info->timestamp_prescale == 0 &&
+				    encoder_info->support_timestamp_prescale_1 ==
+					    false) ||
+				   (config_info->timestamp_prescale == 1 &&
+				    encoder_info->support_timestamp_prescale_4 ==
+					    false) ||
+				   (config_info->timestamp_prescale == 2 &&
+				    encoder_info->support_timestamp_prescale_16 ==
+					    false) ||
+				   (config_info->timestamp_prescale == 3 &&
+				    encoder_info->support_timestamp_prescale_64 ==
+					    false)) {
+				// msg
+				sprintf(str,
+					"Error: encoder configs timestamp_prescale %d, but the encoder(0x%llx) does not support.\n",
+					config_info->timestamp_prescale,
+					encoder_info->base_addr);
+				xt_trace_msgout(str);
+				return 1;
 			}
 		}
 	}
@@ -920,7 +939,8 @@ xt_trace_encoder_config(struct xt_trace_encoder_control_info *encoder_info,
 		primary_enable_trace_component(encoder_info->base_addr);
 	if (tr_encoder_control <= 0) {
 		// any msg
-		sprintf(str, "Fail to enable the encoder(0x%llx).\n", (u64)encoder_info->base_addr);
+		sprintf(str, "Fail to enable the encoder(0x%llx).\n",
+			(u64)encoder_info->base_addr);
 		xt_trace_msgout(str);
 		return tr_encoder_control;
 	}

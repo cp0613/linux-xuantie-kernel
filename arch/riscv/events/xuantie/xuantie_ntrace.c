@@ -50,6 +50,7 @@ build_encoder_config_info(struct xuantie_ntrace_component *component,
 	encoder_config->inst_extend_addr_msb = false;
 
 	encoder_config->src_id = component->encoder.src_id;
+	encoder_config->src_bits = component->encoder_info.default_src_bits;
 
 	// data trace: disable
 	encoder_config->data_trace_enable = false;
