@@ -30,6 +30,7 @@
 
 #define ARCH_INTEL     1
 #define ARCH_AMD       2
+#define ARCH_RISCV     3
 
 #define END_OF_TESTS	1
 

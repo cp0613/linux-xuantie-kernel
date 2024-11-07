@@ -15,23 +15,31 @@ static int detect_vendor(void)
 	FILE *inf = fopen("/proc/cpuinfo", "r");
 	int vendor_id = 0;
 	char *s = NULL;
+	char *a = NULL;
 	char *res;
+	char *isa;
 
 	if (!inf)
 		return vendor_id;
 
 	res = fgrep(inf, "vendor_id");
+	isa = fgrep(inf, "isa");
 
 	if (res)
 		s = strchr(res, ':');
+	if (isa)
+		a = strchr(isa, ':');
 
 	if (s && !strcmp(s, ": GenuineIntel\n"))
 		vendor_id = ARCH_INTEL;
 	else if (s && !strcmp(s, ": AuthenticAMD\n"))
 		vendor_id = ARCH_AMD;
+	if (a && strstr(a, "ssqosid"))
+		vendor_id = ARCH_RISCV;
 
 	fclose(inf);
 	free(res);
+	free(isa);
 	return vendor_id;
 }
 
@@ -105,7 +113,7 @@ static void run_mbm_test(const char * const *benchmark_cmd, int cpu_no)
 
 	if (!validate_resctrl_feature_request("L3_MON", "mbm_total_bytes") ||
 	    !validate_resctrl_feature_request("L3_MON", "mbm_local_bytes") ||
-	    (get_vendor() != ARCH_INTEL)) {
+	    ((get_vendor() != ARCH_INTEL) && (get_vendor() != ARCH_RISCV))) {
 		ksft_test_result_skip("Hardware does not support MBM or MBM is disabled\n");
 		goto cleanup;
 	}
@@ -114,6 +122,8 @@ static void run_mbm_test(const char * const *benchmark_cmd, int cpu_no)
 	ksft_test_result(!res, "MBM: bw change\n");
 	if ((get_vendor() == ARCH_INTEL) && res)
 		ksft_print_msg("Intel MBM may be inaccurate when Sub-NUMA Clustering is enabled. Check BIOS configuration.\n");
+	if ((get_vendor() == ARCH_RISCV) && res)
+		ksft_print_msg("RISCV MBM may be inaccurate when Sub-NUMA Clustering is enabled. Check BIOS configuration.\n");
 
 cleanup:
 	test_cleanup();
@@ -132,7 +142,7 @@ static void run_mba_test(const char * const *benchmark_cmd, int cpu_no)
 
 	if (!validate_resctrl_feature_request("MB", NULL) ||
 	    !validate_resctrl_feature_request("L3_MON", "mbm_local_bytes") ||
-	    (get_vendor() != ARCH_INTEL)) {
+	    ((get_vendor() != ARCH_INTEL) && (get_vendor() != ARCH_RISCV))) {
 		ksft_test_result_skip("Hardware does not support MBA or MBA is disabled\n");
 		goto cleanup;
 	}
@@ -165,6 +175,8 @@ static void run_cmt_test(const char * const *benchmark_cmd, int cpu_no)
 	ksft_test_result(!res, "CMT: test\n");
 	if ((get_vendor() == ARCH_INTEL) && res)
 		ksft_print_msg("Intel CMT may be inaccurate when Sub-NUMA Clustering is enabled. Check BIOS configuration.\n");
+	if ((get_vendor() == ARCH_RISCV) && res)
+		ksft_print_msg("RISCV MBM may be inaccurate when Sub-NUMA Clustering is enabled. Check BIOS configuration.\n");
 
 cleanup:
 	test_cleanup();
