@@ -35,9 +35,9 @@ TRACE_CONTROL_LIB_API int32_t xt_trace_ram_sink_get_data_size(
 	return 0;
 }
 
-int32_t xt_trace_read_data_from_sram_sink(uint64_t base_addr,
-					  uint64_t trace_data_start_address,
-					  uint64_t buffer_size, uint8_t *buffer)
+TRACE_CONTROL_LIB_API int32_t xt_trace_read_data_from_sram_sink(
+	uint64_t base_addr, uint64_t trace_data_start_address,
+	uint64_t buffer_size, uint8_t *buffer)
 {
 	uint32_t tr_ram_data = 0;
 	uint64_t read_length = 0;

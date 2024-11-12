@@ -12,6 +12,9 @@
 #include "xuantie_ntrace.h"
 #include "xt_ntrace_control_interface.h"
 
+#define TEST_SRAM_SINK	0
+#define TEST_LOG_ON		0
+
 LIST_HEAD(xuantie_ntrace_controllers);
 static struct xuantie_ntrace_pmu xuantie_ntrace_pmu;
 
@@ -79,14 +82,25 @@ build_sink_config_info(struct xuantie_ntrace_component *component,
 		       struct xt_trace_sink_config_info *sink_config)
 {
 	memset(sink_config, 0, sizeof(struct xt_trace_sink_config_info));
-	sink_config->component_type = TRCOMP_RAMSINK;
-	sink_config->type = TRACE_SMEM_SINK; // configure to SMEM Sink
-	sink_config->ram_sink_stop_on_wrap =
-		false; // the circular buffer gets full
-	sink_config->ram_sink_mem_format = 0; // plain bytes
-	sink_config->ram_sink_start = component->sink.start_addr;
-	sink_config->ram_sink_limit = component->sink.limit_addr - 0x4;
-	sink_config->ram_sink_write_point = component->sink.start_addr;
+
+	if (TEST_SRAM_SINK) {
+		sink_config->component_type = TRCOMP_RAMSINK;
+		sink_config->type = TRACE_SRAM_SINK;        // configure to SMEM Sink
+		sink_config->ram_sink_stop_on_wrap = false; // the circular buffer gets full
+		sink_config->ram_sink_mem_format = 0;       // plain bytes
+		sink_config->ram_sink_start = 0;
+		sink_config->ram_sink_limit = 0x7fc;
+		sink_config->ram_sink_write_point = 0;
+	} else {
+		sink_config->component_type = TRCOMP_RAMSINK;
+		sink_config->type = TRACE_SMEM_SINK;        // configure to SMEM Sink
+		sink_config->ram_sink_stop_on_wrap = false; // the circular buffer gets full
+		sink_config->ram_sink_mem_format = 0;       // plain bytes
+		sink_config->ram_sink_start = component->sink.start_addr;
+		sink_config->ram_sink_limit = (component->sink.limit_addr & 0xffffff00) - 4;
+		component->sink.limit_addr = component->sink.limit_addr & 0xffffff00;
+		sink_config->ram_sink_write_point = component->sink.start_addr;
+	}
 
 	////for pib sink
 	// sink_config->pib_sink_mode;
@@ -103,12 +117,18 @@ build_sink_config_info(struct xuantie_ntrace_component *component,
 static int trace_register_write(u64 addr, u32 value)
 {
 	iowrite32(value, (void __iomem *)(unsigned long)addr);
+#ifdef TEST_LOG_ON
+	pr_info("--->write 0x%llx with 0x%x\n", addr, value);
+#endif
 	return 0;
 }
 
 static int trace_register_read(u64 addr, u32 *value)
 {
 	*value = ioread32((void __iomem *)(unsigned long)addr);
+#ifdef TEST_LOG_ON
+	pr_info("--->read 0x%llx get 0x%x\n", addr, *value);
+#endif
 	return 0;
 }
 
@@ -310,25 +330,61 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int mode)
 			component->sink_info.base_addr);
 		return;
 	}
-	if (trace_write_point & 0x1) {
-		trace_data_section0_start = trace_write_point &
-					    0xfffffffffffffffc;
-		trace_data_section0_size = component_sink->sink.limit_addr -
-					   trace_data_section0_start;
-		trace_data_section1_start = component_sink->sink.start_addr;
-		trace_data_section1_size = trace_data_section0_start -
-					   component_sink->sink.start_addr;
+	if (TEST_SRAM_SINK) {
+		if (trace_write_point & 0x1) {
+			trace_data_section0_start = trace_write_point & 0xfffffffffffffffc;
+			trace_data_section0_size = 0x800 - trace_data_section0_start;
+			trace_data_section1_start = 0;
+			trace_data_section1_size = trace_data_section0_start;
+		} else {
+			trace_data_section0_start = 0;
+			trace_data_section0_size = trace_write_point;
+		}
 	} else {
-		trace_data_section0_start = component_sink->sink.start_addr;
-		trace_data_section0_size = trace_data_section0_start -
-					   component_sink->sink.start_addr;
+		if (trace_write_point & 0x1) {
+			trace_data_section0_start = trace_write_point & 0xfffffffffffffffc;
+			trace_data_section0_size =
+				component_sink->sink.limit_addr - trace_data_section0_start;
+			trace_data_section1_start = component_sink->sink.start_addr;
+			trace_data_section1_size =
+				trace_data_section0_start - component_sink->sink.start_addr;
+		} else {
+			trace_data_section0_start = 0;
+			trace_data_section0_size = trace_write_point;
+		}
 	}
 
 	/* Build saved config and save it to Perf.data. */
 	xuantie_build_saved_config(&config, component, trace_write_point & 0x1);
 
 	/* Read Trace data. */
-	//...
+	if (TEST_SRAM_SINK) {
+		int i = 0;
+		unsigned char buf[0x800];
+
+		if (trace_data_section0_size) {
+			if (xt_trace_read_data_from_sram_sink(component_sink->sink_info.base_addr,
+					trace_data_section0_start,  trace_data_section0_size,
+					buf) < 0) {
+				pr_info("fail to read trace_data_section0_size 0x%x\n",
+					trace_data_section0_size);
+				return;
+			}
+		}
+		if (trace_data_section1_size) {
+			if (xt_trace_read_data_from_sram_sink(component_sink->sink_info.base_addr,
+					trace_data_section1_start,  trace_data_section1_size,
+					buf+trace_data_section0_size) < 0) {
+				pr_info("fail to read trace_data_section0_size 0x%x\n",
+					trace_data_section0_size);
+				return;
+			}
+		}
+
+		pr_info("trace get data: ");
+		for (i = 0 ; i < (trace_data_section0_size + trace_data_section1_size); i++)
+			pr_info(" 0x%x", (int)buf[i]);
+	}
 
 	/*Save Trace data to Perf.data. */
 
@@ -392,12 +448,12 @@ static void xuantie_ntrace_event_read(struct perf_event *event)
 
 static void xuantie_ntrace_event_enable(struct pmu *pmu)
 {
-	pr_info("%s:%d\n", __func__, __LINE__);
+	//pr_info("%s:%d\n", __func__, __LINE__);
 }
 
 static void xuantie_ntrace_event_disable(struct pmu *pmu)
 {
-	pr_info("%s:%d\n", __func__, __LINE__);
+	//pr_info("%s:%d\n", __func__, __LINE__);
 }
 
 static void xuantie_ntrace_event_filters_sync(struct perf_event *event)

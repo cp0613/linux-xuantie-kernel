@@ -258,6 +258,7 @@ xt_trace_encoder_enable(struct xt_trace_encoder_control_info *encoder_info,
 	char str[100] = { '\0' };
 
 	if (enable_timestamp) {
+		/* FIXME: only internal timestamp should do this operation
 		if (enable_trace_component(encoder_info->base_addr +
 					   OFFSET_TRTSCONTROL)) {
 			sprintf(str,
@@ -266,6 +267,7 @@ xt_trace_encoder_enable(struct xt_trace_encoder_control_info *encoder_info,
 			xt_trace_msgout(str);
 			return -1;
 		}
+		*/
 
 		if (enable_trace_encoder_timestamp(encoder_info->base_addr +
 						   OFFSET_TRTSCONTROL)) {

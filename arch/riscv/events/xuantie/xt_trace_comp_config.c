@@ -312,6 +312,7 @@ xt_trace_sink_config(struct xt_trace_sink_control_info *sink_info,
 			(uint32_t)config_info->ram_sink_limit);
 		if (read_value_tmp == -1)
 			return -1;
+		/* FIXME: the H100 bit will get error here
 		if (read_value_tmp != (uint32_t)config_info->ram_sink_limit) {
 			sprintf(str,
 				"Config trRamStartLimitLow(0x%llx) 0x%x for smem sink get 0x%x.\n",
@@ -321,6 +322,7 @@ xt_trace_sink_config(struct xt_trace_sink_control_info *sink_info,
 			xt_trace_msgout(str);
 			goto config_failed;
 		}
+		*/
 		read_value_tmp = xt_trace_register_readafterwrite(
 			sink_info->base_addr + OFFSET_TRRAMLIMITHIGH,
 			(uint32_t)(config_info->ram_sink_limit >> 32));

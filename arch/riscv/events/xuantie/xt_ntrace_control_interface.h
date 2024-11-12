@@ -390,7 +390,7 @@ struct xt_trace_encoder_control_info {
 #define u32_get_fields(value, field_high, field_low) \
 	((value >> field_low) & (0xffffffff >> (31 - (field_high - field_low))))
 
-#define XT_CHECK_TRANYCONTROL_TIMES 2000
+#define XT_CHECK_TRANYCONTROL_TIMES 0xfffffff
 
 /*========================================================================*/
 //  For Configing the Trace Component
@@ -618,6 +618,10 @@ TRACE_CONTROL_LIB_API int32_t xt_trace_ram_sink_get_data(
 	struct xt_trace_sink_control_info *sink_info,
 	struct xt_trace_sink_config_info *config_info, uint64_t write_point,
 	uint64_t offset, uint64_t buffer_size, uint8_t *buffer);
+
+TRACE_CONTROL_LIB_API int32_t xt_trace_read_data_from_sram_sink(
+	uint64_t base_addr, uint64_t trace_data_start_address,
+	uint64_t buffer_size, uint8_t *buffer);
 
 TRACE_CONTROL_LIB_API int32_t xt_trace_register_write(uint64_t addr, uint32_t value);
 TRACE_CONTROL_LIB_API int32_t xt_trace_register_read(uint64_t addr, uint32_t *value);
