@@ -108,11 +108,8 @@ bool resctrl_arch_is_llc_occupancy_enabled(void)
 	/*
 	 * There is no occupancy in CBQRI bandwidth controller (resctrl MON_DATA
 	 * was the only available way to implement RISC-V memory monitoring).
-	 * As we need occupancy for CBQRI capacity controller, this global
-	 * setting is true, but the ll_occupancy files of CBQRI bandwidth
-	 * controllers will return an error.
 	 */
-	return true;
+	return false;
 }
 
 /*
