@@ -92,14 +92,8 @@ struct xuantie_saved_conifg {
 struct xuantie_ntrace_pmu {
 	struct pmu		pmu;
 	u32			caps[32];
-};
-
-/**
- * struct ntrace - per-cpu ntrace context
- * @handle:		perf output handle
- */
-struct xuantie_ntrace {
 	struct perf_output_handle handle;
+	struct perf_sample_data data;
 };
 
 static inline const char *xuantie_ntrace_type2str(enum XUANTIE_NTRACE_COMPONENT_TYPE type)

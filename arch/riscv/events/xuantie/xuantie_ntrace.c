@@ -354,13 +354,18 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int mode)
 		}
 	}
 
-	/* Build saved config and save it to Perf.data. */
+	/* Build saved config */
 	xuantie_build_saved_config(&config, component, trace_write_point & 0x1);
+	/* Save trace config to Perf.data. */
+	perf_output_begin(&xuantie_ntrace_pmu.handle, &xuantie_ntrace_pmu.data, event,
+		sizeof(struct xuantie_saved_conifg));
+	perf_output_copy(&xuantie_ntrace_pmu.handle, &config, sizeof(struct xuantie_saved_conifg));
+	perf_output_end(&xuantie_ntrace_pmu.handle);
 
 	/* Read Trace data. */
 	if (TEST_SRAM_SINK) {
 		int i = 0;
-		unsigned char buf[0x800];
+		unsigned char buf[0x600];
 
 		if (trace_data_section0_size) {
 			if (xt_trace_read_data_from_sram_sink(component_sink->sink_info.base_addr,
@@ -384,9 +389,14 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int mode)
 		pr_info("trace get data: ");
 		for (i = 0 ; i < (trace_data_section0_size + trace_data_section1_size); i++)
 			pr_info(" 0x%x", (int)buf[i]);
-	}
 
-	/*Save Trace data to Perf.data. */
+		/*Save Trace data to Perf.data. */
+		perf_output_begin(&xuantie_ntrace_pmu.handle, &xuantie_ntrace_pmu.data, event,
+			trace_data_section0_size + trace_data_section1_size);
+		perf_output_copy(&xuantie_ntrace_pmu.handle, buf,
+			trace_data_section0_size + trace_data_section1_size);
+		perf_output_end(&xuantie_ntrace_pmu.handle);
+	}
 
 	/* Close the SINK.  */
 	xt_trace_sink_close(&component_sink->sink_info);
