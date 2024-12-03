@@ -1,0 +1,3 @@
+perf-y += tsc.o
+
+perf-$(CONFIG_AUXTRACE) += xuantie-ntrace.o
