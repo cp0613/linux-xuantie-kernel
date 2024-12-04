@@ -4,6 +4,7 @@
 
 #include <linux/types.h>
 #include <linux/bits.h>
+#include <linux/bitfield.h>
 #include <linux/limits.h>
 #include <linux/slab.h>
 #include <linux/device.h>
@@ -17,6 +18,43 @@
 
 LIST_HEAD(xuantie_ntrace_controllers);
 static struct xuantie_ntrace_pmu xuantie_ntrace_pmu;
+
+PMU_FORMAT_ATTR(start_addr, "config:0-63");
+PMU_FORMAT_ATTR(stop_addr,  "config1:0-63");
+
+static struct attribute *xuantie_ntrace_filter_attrs[] = {
+	&format_attr_start_addr.attr,
+	&format_attr_stop_addr.attr,
+	NULL
+};
+
+static struct attribute_group xuantie_ntrace_filter_attr_group = {
+	.name = "format",
+	.attrs = xuantie_ntrace_filter_attrs,
+};
+
+static const struct attribute_group *xuantie_ntrace_attr_groups[] = {
+	&xuantie_ntrace_filter_attr_group,
+	NULL
+};
+
+static void xuantue_ntrace_init_filter_attrs(struct perf_event *event)
+{
+	xuantie_ntrace_pmu.filter_attr.start_addr = event->attr.config;
+	xuantie_ntrace_pmu.filter_attr.stop_addr  = event->attr.config1;
+
+	if (event->attr.exclude_kernel)
+		xuantie_ntrace_pmu.filter_attr.priv_mode = XUANTIE_NTRACE_PRIV_MODE_EXCL_KERN;
+	else if (event->attr.exclude_user)
+		xuantie_ntrace_pmu.filter_attr.priv_mode = XUANTIE_NTRACE_PRIV_MODE_EXCL_USER;
+	else
+		xuantie_ntrace_pmu.filter_attr.priv_mode = XUANTIE_NTRACE_PRIV_MODE_EXCL_NONE;
+
+	pr_info("start_addr=0x%llx stop_addr=0x%llx priv_mode=%d\n",
+		xuantie_ntrace_pmu.filter_attr.start_addr,
+		xuantie_ntrace_pmu.filter_attr.stop_addr,
+		xuantie_ntrace_pmu.filter_attr.priv_mode);
+}
 
 static int console_msg_out(const char *str)
 {
@@ -114,6 +152,28 @@ build_sink_config_info(struct xuantie_ntrace_component *component,
 	// sink_config->sink_async_freq;
 }
 
+void xuantie_build_saved_config(struct xuantie_saved_conifg *config,
+				struct xuantie_ntrace_component *component,
+				int wrap)
+{
+	memset(config, 0, sizeof(struct xuantie_saved_conifg));
+
+	/* Save encoder info. */
+	config->_size = sizeof(struct xuantie_saved_conifg);
+	config->inst_mode = component->encoder.inst_mode;
+	if (!component->encoder.inhibit_src)
+		config->src_bits = component->encoder_info.default_src_bits;
+	else
+		config->src_bits = 0;
+	if (component->encoder.enable_timestamp)
+		config->timestamp_bits = component->encoder_info.timestamp_width;
+	else
+		config->timestamp_bits = 0;
+
+	/* Save trRamWrap. */
+	config->trace_ram_wrap = wrap;
+}
+
 static int trace_register_write(u64 addr, u32 value)
 {
 	iowrite32(value, (void __iomem *)(unsigned long)addr);
@@ -132,21 +192,22 @@ static int trace_register_read(u64 addr, u32 *value)
 	return 0;
 }
 
-static const struct attribute_group *xuantie_ntrace_event_attr_groups[] = {
-	NULL,
-};
-
 static int xuantie_ntrace_event_init(struct perf_event *event)
 {
-	pr_info("%s:%d\n", __func__, __LINE__);
+	if (event->attr.type != xuantie_ntrace_pmu.pmu.type)
+		return -ENOENT;
+
+	xuantue_ntrace_init_filter_attrs(event);
+
 	return 0;
 }
 
-static int xuantie_ntrace_event_add(struct perf_event *event, int mode)
+static int xuantie_ntrace_event_add(struct perf_event *event, int flags)
 {
 	struct xuantie_ntrace_component *component;
+	struct xuantie_ntrace_aux_buf *buf;
 
-	pr_info("%s:%d\n", __func__, __LINE__);
+	pr_info("%s:%d flags=%d\n", __func__, __LINE__, flags);
 
 	/* Set interfaces needed for Trace Control Lib. */
 	xt_trace_control_init_rw_trace_interface(console_msg_out,
@@ -247,6 +308,12 @@ static int xuantie_ntrace_event_add(struct perf_event *event, int mode)
 		}
 	}
 
+	buf = perf_aux_output_begin(&xuantie_ntrace_pmu.handle, event);
+	if (!buf)
+		pr_info("%s:%d perf_aux_output_begin failed\n", __func__, __LINE__);
+	pr_info("base=%p length=%ld nr_pages=%ld pos=%ld\n", buf->base, buf->length,
+		buf->nr_pages, buf->pos);
+
 	return 0;
 
 error_end:
@@ -266,29 +333,7 @@ error_end:
 	return -1;
 }
 
-void xuantie_build_saved_config(struct xuantie_saved_conifg *config,
-				struct xuantie_ntrace_component *component,
-				int wrap)
-{
-	memset(config, 0, sizeof(struct xuantie_saved_conifg));
-
-	/* Save encoder info. */
-	config->_size = sizeof(struct xuantie_saved_conifg);
-	config->inst_mode = component->encoder.inst_mode;
-	if (!component->encoder.inhibit_src)
-		config->src_bits = component->encoder_info.default_src_bits;
-	else
-		config->src_bits = 0;
-	if (component->encoder.enable_timestamp)
-		config->timestamp_bits = component->encoder_info.timestamp_width;
-	else
-		config->timestamp_bits = 0;
-
-	/* Save trRamWrap. */
-	config->trace_ram_wrap = wrap;
-}
-
-static void xuantie_ntrace_event_del(struct perf_event *event, int mode)
+static void xuantie_ntrace_event_del(struct perf_event *event, int flags)
 {
 	u64 trace_write_point = 0;
 	u64 trace_data_section0_start = 0;
@@ -299,8 +344,9 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int mode)
 	struct xuantie_ntrace_component *component_sink;
 	struct xuantie_ntrace_component *component_encoder;
 	struct xuantie_saved_conifg config;
+	struct xuantie_ntrace_aux_buf *buf = perf_get_aux(&xuantie_ntrace_pmu.handle);
 
-	pr_info("%s:%d\n", __func__, __LINE__);
+	pr_info("%s:%d flags=%d\n", __func__, __LINE__, flags);
 
 	/* Disable and close all funnels and encoders, just disable the sink. */
 	list_for_each_entry(component, &xuantie_ntrace_controllers, list) {
@@ -357,20 +403,18 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int mode)
 	/* Build saved config */
 	xuantie_build_saved_config(&config, component, trace_write_point & 0x1);
 	/* Save trace config to Perf.data. */
-	perf_output_begin(&xuantie_ntrace_pmu.handle, &xuantie_ntrace_pmu.data, event,
-		sizeof(struct xuantie_saved_conifg));
-	perf_output_copy(&xuantie_ntrace_pmu.handle, &config, sizeof(struct xuantie_saved_conifg));
-	perf_output_end(&xuantie_ntrace_pmu.handle);
+	memcpy(buf->base + buf->pos, &config, sizeof(struct xuantie_saved_conifg));
+	buf->pos += sizeof(struct xuantie_saved_conifg);
 
 	/* Read Trace data. */
 	if (TEST_SRAM_SINK) {
 		int i = 0;
-		unsigned char buf[0x600];
+		unsigned char trace_buf[0x600];
 
 		if (trace_data_section0_size) {
 			if (xt_trace_read_data_from_sram_sink(component_sink->sink_info.base_addr,
 					trace_data_section0_start,  trace_data_section0_size,
-					buf) < 0) {
+					trace_buf) < 0) {
 				pr_info("fail to read trace_data_section0_size 0x%x\n",
 					trace_data_section0_size);
 				return;
@@ -379,7 +423,7 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int mode)
 		if (trace_data_section1_size) {
 			if (xt_trace_read_data_from_sram_sink(component_sink->sink_info.base_addr,
 					trace_data_section1_start,  trace_data_section1_size,
-					buf+trace_data_section0_size) < 0) {
+					trace_buf+trace_data_section0_size) < 0) {
 				pr_info("fail to read trace_data_section0_size 0x%x\n",
 					trace_data_section0_size);
 				return;
@@ -388,27 +432,28 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int mode)
 
 		pr_info("trace get data: ");
 		for (i = 0 ; i < (trace_data_section0_size + trace_data_section1_size); i++)
-			pr_info(" 0x%x", (int)buf[i]);
+			pr_info(" 0x%x", (int)trace_buf[i]);
 
 		/*Save Trace data to Perf.data. */
-		perf_output_begin(&xuantie_ntrace_pmu.handle, &xuantie_ntrace_pmu.data, event,
+		memcpy(buf->base + buf->pos, trace_buf,
 			trace_data_section0_size + trace_data_section1_size);
-		perf_output_copy(&xuantie_ntrace_pmu.handle, buf,
-			trace_data_section0_size + trace_data_section1_size);
-		perf_output_end(&xuantie_ntrace_pmu.handle);
+		buf->pos += trace_data_section0_size + trace_data_section1_size;
 	}
+
+	perf_aux_output_end(&xuantie_ntrace_pmu.handle, trace_data_section0_size +
+		trace_data_section1_size + sizeof(struct xuantie_saved_conifg));
 
 	/* Close the SINK.  */
 	xt_trace_sink_close(&component_sink->sink_info);
 }
 
-static void xuantie_ntrace_event_start(struct perf_event *event, int mode)
+static void xuantie_ntrace_event_start(struct perf_event *event, int flags)
 {
 	struct xuantie_ntrace_component *component;
 	int found_encoder = 0;
 
-	pr_info("%s:%d on_cpu=%d cpu=%d\n", __func__, __LINE__, event->oncpu,
-		event->cpu);
+	pr_info("%s:%d on_cpu=%d cpu=%d flags=%d\n", __func__, __LINE__,
+		event->oncpu, event->cpu, flags);
 
 	list_for_each_entry(component, &xuantie_ntrace_controllers, list) {
 		if (component->type == XUANTIE_NTRACE_ENCODER) {
@@ -429,12 +474,12 @@ static void xuantie_ntrace_event_start(struct perf_event *event, int mode)
 	//check found_encoder
 }
 
-static void xuantie_ntrace_event_stop(struct perf_event *event, int mode)
+static void xuantie_ntrace_event_stop(struct perf_event *event, int flags)
 {
 	struct xuantie_ntrace_component *component;
 
-	pr_info("%s:%d on_cpu=%d cpu=%d\n", __func__, __LINE__, event->oncpu,
-		event->cpu);
+	pr_info("%s:%d on_cpu=%d cpu=%d flags=%d\n", __func__, __LINE__,
+		event->oncpu, event->cpu, flags);
 
 	list_for_each_entry(component, &xuantie_ntrace_controllers, list) {
 		if (component->type == XUANTIE_NTRACE_ENCODER) {
@@ -449,6 +494,77 @@ static void xuantie_ntrace_event_stop(struct perf_event *event, int mode)
 			}
 		}
 	}
+}
+
+/*
+ * aux_buffer_setup() - Setup AUX buffer for diagnostic mode sampling
+ * @event:	Event the buffer is setup for, event->cpu == -1 means current
+ * @pages:	Array of pointers to buffer pages passed from perf core
+ * @nr_pages:	Total pages
+ * @snapshot:	Flag for snapshot mode
+ *
+ * This is the callback when setup an event using AUX buffer. Perf tool can
+ * trigger this by an additional mmap() call on the event. Unlike the buffer
+ * for basic samples, AUX buffer belongs to the event. It is scheduled with
+ * the task among online cpus when it is a per-thread event.
+ *
+ * Return the private AUX buffer structure if success or NULL if fails.
+ */
+static void *xuantie_ntrace_buffer_setup_aux(struct perf_event *event, void **pages,
+					 int nr_pages, bool overwrite)
+{
+	struct xuantie_ntrace_aux_buf *buf;
+	struct page **pagelist;
+	int i;
+
+	pr_info("%s:%d\n", __func__, __LINE__);
+
+	if (overwrite) {
+		pr_warn("Overwrite mode is not supported\n");
+		return NULL;
+	}
+
+	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
+	if (!buf)
+		return NULL;
+
+	pagelist = kcalloc(nr_pages, sizeof(*pagelist), GFP_KERNEL);
+	if (!pagelist)
+		goto err;
+
+	for (i = 0; i < nr_pages; i++)
+		pagelist[i] = virt_to_page(pages[i]);
+
+	buf->base = vmap(pagelist, nr_pages, VM_MAP, PAGE_KERNEL);
+	if (!buf->base) {
+		kfree(pagelist);
+		goto err;
+	}
+
+	buf->nr_pages = nr_pages;
+	buf->length = nr_pages * PAGE_SIZE;
+	buf->pos = 0;
+
+	pr_info("nr_pages=%ld length=%ld\n", buf->nr_pages, buf->length);
+
+	kfree(pagelist);
+	return buf;
+err:
+	kfree(buf);
+	return NULL;
+}
+
+/*
+ * Callback when freeing AUX buffers.
+ */
+static void xuantie_ntrace_buffer_free_aux(void *aux)
+{
+	struct xuantie_ntrace_aux_buf *buf = aux;
+
+	pr_info("%s:%d\n", __func__, __LINE__);
+
+	vunmap(buf->base);
+	kfree(buf);
 }
 
 static void xuantie_ntrace_event_read(struct perf_event *event)
@@ -500,21 +616,20 @@ static __init int xuantie_ntrace_init(void)
 	}
 
 	xuantie_ntrace_pmu.pmu.module = THIS_MODULE,
-	xuantie_ntrace_pmu.pmu.name = "xuantie_ntrace",
 	xuantie_ntrace_pmu.pmu.capabilities = PERF_PMU_CAP_EXCLUSIVE |
 					      PERF_PMU_CAP_ITRACE;
-	xuantie_ntrace_pmu.pmu.attr_groups	= xuantie_ntrace_event_attr_groups;
 	xuantie_ntrace_pmu.pmu.task_ctx_nr	= perf_sw_context;
+	xuantie_ntrace_pmu.pmu.attr_groups	= xuantie_ntrace_attr_groups;
 	xuantie_ntrace_pmu.pmu.event_init	= xuantie_ntrace_event_init;
-	xuantie_ntrace_pmu.pmu.add			= xuantie_ntrace_event_add;
-	xuantie_ntrace_pmu.pmu.del			= xuantie_ntrace_event_del;
+	xuantie_ntrace_pmu.pmu.setup_aux	= xuantie_ntrace_buffer_setup_aux;
+	xuantie_ntrace_pmu.pmu.free_aux		= xuantie_ntrace_buffer_free_aux;
 	xuantie_ntrace_pmu.pmu.start		= xuantie_ntrace_event_start;
 	xuantie_ntrace_pmu.pmu.stop			= xuantie_ntrace_event_stop;
+	xuantie_ntrace_pmu.pmu.add			= xuantie_ntrace_event_add;
+	xuantie_ntrace_pmu.pmu.del			= xuantie_ntrace_event_del;
 	xuantie_ntrace_pmu.pmu.read			= xuantie_ntrace_event_read;
 	xuantie_ntrace_pmu.pmu.pmu_enable	= xuantie_ntrace_event_enable;
 	xuantie_ntrace_pmu.pmu.pmu_disable	= xuantie_ntrace_event_disable;
-	// xuantie_ntrace_pmu.pmu.setup_aux	= xuantie_ntrace_buffer_setup_aux;
-	// xuantie_ntrace_pmu.pmu.free_aux		= xuantie_ntrace_buffer_free_aux;
 	xuantie_ntrace_pmu.pmu.addr_filters_sync =
 		xuantie_ntrace_event_filters_sync;
 	xuantie_ntrace_pmu.pmu.addr_filters_validate =

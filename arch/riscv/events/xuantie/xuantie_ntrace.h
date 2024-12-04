@@ -89,11 +89,39 @@ struct xuantie_saved_conifg {
 	u32 _align;
 };
 
+#define XUANTIE_NTRACE_ADDR_MASK GENMASK(63, 0)
+enum XUANTIE_NTRACE_MODE_TYPE {
+	XUANTIE_NTRACE_PRIV_MODE_EXCL_NONE = 0,
+	XUANTIE_NTRACE_PRIV_MODE_EXCL_KERN,
+	XUANTIE_NTRACE_PRIV_MODE_EXCL_USER,
+};
+
+struct xuantie_ntrace_filter_attr {
+	u64 start_addr;
+	u64 stop_addr;
+	u32 priv_mode; // user&kernel
+};
+
 struct xuantie_ntrace_pmu {
 	struct pmu		pmu;
 	u32			caps[32];
 	struct perf_output_handle handle;
 	struct perf_sample_data data;
+	struct xuantie_ntrace_filter_attr filter_attr;
+};
+
+/**
+ * struct xuantie_ntrace_aux_buf - Descriptor of the AUX buffer of xuantie_ntrace
+ * @length:   size of the AUX buffer
+ * @nr_pages: number of pages of the AUX buffer
+ * @base:     start address of AUX buffer
+ * @pos:      position in the AUX buffer to commit traced data
+ */
+struct xuantie_ntrace_aux_buf {
+	unsigned long length;
+	unsigned long nr_pages;
+	void *base;
+	unsigned long pos;
 };
 
 static inline const char *xuantie_ntrace_type2str(enum XUANTIE_NTRACE_COMPONENT_TYPE type)
