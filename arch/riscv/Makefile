@@ -80,7 +80,7 @@ riscv-march-$(CONFIG_XUANTIE_ISA) := $(riscv-march-y)_xtheadc
 
 # Remove F,D from isa string for xuantie-toolchain (e.g. gcc-10.4).
 # Remove F,D,V from isa string for upstream-toolchain.
-ifeq ($(CONFIG_TOOLCHAIN_HAS_XTHEADC)$(call gcc-max-version, 100400),yy)
+ifeq ($(CONFIG_TOOLCHAIN_HAS_XTHEADC)$(CONFIG_GCC_VERSION)$(call gcc-max-version, 100400),yyy)
 	KBUILD_CFLAGS += -march=$(subst fd,,$(riscv-march-y))
 else
 	KBUILD_CFLAGS += -march=$(shell echo $(riscv-march-y) | sed -E 's/(rv32ima|rv64ima)fd([^v_]*)v?/\1\2/')
