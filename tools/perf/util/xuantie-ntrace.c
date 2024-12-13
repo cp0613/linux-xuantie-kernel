@@ -15,11 +15,12 @@
 #include "color.h"
 #include "debug.h"
 #include "evsel.h"
-#include "xuantie-ntrace.h"
 #include "machine.h"
 #include "session.h"
 #include "tool.h"
 #include <internal/lib.h>
+#include "xuantie-ntrace.h"
+#include "xuantie-ntrace-decoder/xuantie-ntrace-decoder.h"
 
 struct xuantie_ntrace {
 	struct auxtrace auxtrace;
@@ -32,12 +33,36 @@ struct xuantie_ntrace {
 static void xuantie_ntrace_dump(struct xuantie_ntrace *ntrace __maybe_unused,
 			  unsigned char *buf, size_t len)
 {
-
+	struct xuantie_saved_config *saved_config;
 	const char *color = PERF_COLOR_BLUE;
 
 	color_fprintf(stdout, color, ". ... %s: buf=%p len=%zubytes\n", __func__, buf, len);
-	for (size_t i = 0; i < len; i++)
-		printf("%02x ", buf[i]);
+	for (size_t i = 0; i < len; i++) {
+		printf("  [%4d]: %02x", i, buf[i]);
+		if ((i+1)%4 == 0)
+			printf("\n");
+	}
+
+	/* Display xuantie_saved_conifg. */
+	if (len < sizeof(struct xuantie_saved_config)) {
+		printf("Error size of struct auxtrace_event->size 0x%lx, should bigger then 0x%lx",
+			len, sizeof(struct xuantie_saved_config));
+		return;
+	}
+
+	saved_config = (struct xuantie_saved_config *)buf;
+	color_fprintf(stdout, color, ". ... xuantie saved configs are:\n");
+	printf("saved_config->_size is 0x%x\n", saved_config->_size);
+	printf("saved_config->inst_mode is 0x%x\n", saved_config->inst_mode);
+	printf("saved_config->src_bits is 0x%x\n", saved_config->src_bits);
+	printf("saved_config->timestamp_bits is 0x%x\n", saved_config->timestamp_bits);
+	printf("saved_config->trace_ram_wrap is 0x%x\n", saved_config->trace_ram_wrap);
+
+	/* Display XuanTie NTrace Data. */
+	if (xuantie_ntrace_decoder__process_metedata(saved_config,
+			buf + sizeof(struct xuantie_saved_config),
+			len - sizeof(struct xuantie_saved_config)) == 0)
+		xt_trace_program_trace_display_node();
 }
 
 static void xuantie_ntrace_dump_event(struct xuantie_ntrace *ntrace, unsigned char *buf,

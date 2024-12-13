@@ -401,7 +401,7 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int flags)
 	}
 
 	/* Build saved config */
-	xuantie_build_saved_config(&config, component, trace_write_point & 0x1);
+	xuantie_build_saved_config(&config, component_encoder, trace_write_point & 0x1);
 	/* Save trace config to Perf.data. */
 	memcpy(buf->base + buf->pos, &config, sizeof(struct xuantie_saved_conifg));
 	buf->pos += sizeof(struct xuantie_saved_conifg);
