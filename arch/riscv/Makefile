@@ -219,6 +219,7 @@ PHONY += rv64ilp32_defconfig
 rv64ilp32_defconfig:
 	$(Q)$(MAKE) -f $(srctree)/Makefile defconfig 64ilp32.config
 
+PHONY += v_host_defconfig
 PHONY += xuantie_defconfig
 xuantie_defconfig:
 	$(Q)$(MAKE) -f $(srctree)/Makefile defconfig 12HZ.config thp.config fs.config rv64_crypto.config
