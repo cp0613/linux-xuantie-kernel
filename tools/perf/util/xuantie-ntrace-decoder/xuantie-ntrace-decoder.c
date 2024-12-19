@@ -102,6 +102,7 @@ static void xt_trace_free_program_flow_node(void)
 static int32_t
 xt_trace_get_directbranch_full_addr(struct xt_trace_program_flow_node *node)
 {
+	(void)node;
 	return 0;
 }
 
@@ -412,6 +413,8 @@ xt_trace_output_ntrace_message(struct xt_riscv_nexus_trace_message *msg,
 		"Reserved",
 		"Reserved"
 	};
+
+	buf_p += sprintf(buf_p, ".  ");
 
 	switch (msg->tcode) {
 	case TCODE_OWNERSHIP: {

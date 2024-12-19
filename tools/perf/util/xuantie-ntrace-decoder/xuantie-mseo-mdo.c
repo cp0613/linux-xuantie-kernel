@@ -37,7 +37,7 @@ static inline uint8_t trace_data_get_mdo(uint8_t data)
 static int32_t xt_trace_get_trace_data(uint64_t size, uint8_t *buffer)
 {
 	if ((trace_data_offset + size) > trace_data_total_size) {
-		printf("Info: get end of the trace data.\n");
+		printf(".   get end of the trace data.\n");
 		return 1;
 	}
 
@@ -68,8 +68,8 @@ static int32_t xt_trace_get_tcode_middle(uint8_t *tcode)
 	}
 
 	*tcode = trace_data_get_mdo(buffer[1]);
-	printf("tcode is 0x%x, trace_data_offset is %d\n", *tcode,
-	       trace_data_offset + 24);
+	// printf("tcode is 0x%x, trace_data_offset is %d\n", *tcode,
+	//        trace_data_offset + 24);
 	return 0;
 }
 
