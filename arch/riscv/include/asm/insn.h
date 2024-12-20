@@ -239,7 +239,7 @@ static __always_inline bool riscv_insn_is_##name(u32 code)		\
 	return (code & (mask)) == (val);				\
 }									\
 
-#if __riscv_xlen == 32
+#if defined(__riscv) && (__riscv_xlen == 32)
 /* C.JAL is an RV32C-only instruction */
 __RISCV_INSN_FUNCS(c_jal, RVC_MASK_C_JAL, RVC_MATCH_C_JAL)
 #else
