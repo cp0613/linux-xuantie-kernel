@@ -383,8 +383,9 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int flags)
 			trace_data_section1_start = 0;
 			trace_data_section1_size = trace_data_section0_start;
 		} else {
-			trace_data_section0_start = 0;
-			trace_data_section0_size = trace_write_point;
+			trace_data_section0_start = component_sink->sink.start_addr;
+			trace_data_section0_size =
+				trace_write_point - component_sink->sink.start_addr;
 		}
 	} else {
 		if (trace_write_point & 0x1) {
@@ -395,13 +396,28 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int flags)
 			trace_data_section1_size =
 				trace_data_section0_start - component_sink->sink.start_addr;
 		} else {
-			trace_data_section0_start = 0;
-			trace_data_section0_size = trace_write_point;
+			trace_data_section0_start = component_sink->sink.start_addr;
+			trace_data_section0_size =
+				trace_write_point - component_sink->sink.start_addr;
 		}
 	}
 
+	// make start to offset
+	trace_data_section0_start = trace_data_section0_start - component_sink->sink.start_addr;
+	trace_data_section1_start = trace_data_section1_start - component_sink->sink.start_addr;
+
 	/* Build saved config */
 	xuantie_build_saved_config(&config, component_encoder, trace_write_point & 0x1);
+
+	/* If the aux buf space is insufficient, discard the data */
+	if ((buf->pos + trace_data_section0_size + trace_data_section1_size +
+	     sizeof(struct xuantie_saved_conifg)) > buf->length) {
+		pr_warn("aux buf insufficient, discard the data\n");
+		perf_aux_output_end(&xuantie_ntrace_pmu.handle, buf->length - buf->pos);
+		xt_trace_sink_close(&component_sink->sink_info);
+		return;
+	}
+
 	/* Save trace config to Perf.data. */
 	memcpy(buf->base + buf->pos, &config, sizeof(struct xuantie_saved_conifg));
 	buf->pos += sizeof(struct xuantie_saved_conifg);
@@ -438,6 +454,29 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int flags)
 		memcpy(buf->base + buf->pos, trace_buf,
 			trace_data_section0_size + trace_data_section1_size);
 		buf->pos += trace_data_section0_size + trace_data_section1_size;
+	} else {
+		if (trace_data_section0_size) {
+			pr_info("component_sink->sink.vaddr 0x%p, trace_data_section0_start 0x%llx, trace_data_section0_size 0x%x, buf->pos 0x%lx\n",
+				component_sink->sink.vaddr,
+				trace_data_section0_start,
+				trace_data_section0_size, buf->pos);
+			memcpy(buf->base + buf->pos,
+			       component_sink->sink.vaddr +
+				       trace_data_section0_start,
+			       trace_data_section0_size);
+			buf->pos += trace_data_section0_size;
+		}
+		if (trace_data_section1_size) {
+			pr_info("component_sink->sink.vaddr 0x%p, trace_data_section1_start 0x%llx, trace_data_section1_size 0x%x, buf->pos 0x%lx\n",
+				component_sink->sink.vaddr,
+				trace_data_section1_start,
+				trace_data_section1_size, buf->pos);
+			memcpy(buf->base + buf->pos,
+			       component_sink->sink.vaddr +
+				       trace_data_section1_start,
+			       trace_data_section1_size);
+			buf->pos += trace_data_section1_size;
+		}
 	}
 
 	perf_aux_output_end(&xuantie_ntrace_pmu.handle, trace_data_section0_size +

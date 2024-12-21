@@ -50,6 +50,7 @@ struct xuantie_ntrace_funnel {
 struct xuantie_ntrace_sink_smem {
 	u64 start_addr;
 	u64 limit_addr;
+	void __iomem *vaddr;
 	const char *working_mode;
 	const char *format;
 };
