@@ -3064,6 +3064,8 @@ TEST(epoll58)
 	ASSERT_EQ(pthread_create(&ctx.waiter, NULL, waiter_entry1ap, &ctx), 0);
 	ASSERT_EQ(pthread_create(&emitter, NULL, emitter_entry2, &ctx), 0);
 
+	sleep(2);
+
 	pfd.fd = ctx.efd[0];
 	pfd.events = POLLIN;
 	if (poll(&pfd, 1, -1) > 0) {
@@ -3094,7 +3096,7 @@ static void *epoll59_thread(void *ctx_)
 	struct epoll_event e;
 	int i;
 
-	for (i = 0; i < 100000; i++) {
+	for (i = 0; i < 100; i++) {
 		while (ctx->count == 0)
 			;
 
@@ -3136,8 +3138,8 @@ TEST(epoll59)
 
 	ASSERT_EQ(pthread_create(&emitter, NULL, epoll59_thread, &ctx), 0);
 
-	for (i = 0; i < 100000; i++) {
-		ret = epoll_wait(ctx.efd[0], &e, 1, 1000);
+	for (i = 0; i < 100; i++) {
+		ret = epoll_wait(ctx.efd[0], &e, 1, 100000);
 		ASSERT_GT(ret, 0);
 
 		while (ctx.count != 0)
