@@ -693,17 +693,21 @@ static bool reclaim_until(const char *memcg, long goal)
 	for (retries = 5; retries > 0; retries--) {
 		current = cg_read_long(memcg, "memory.current");
 
-		if (current < goal || values_close(current, goal, 3))
+		fprintf(stderr, "%d: current=%ld goal=%ld\n", retries, current, goal);
+		if (current < goal || values_close(current, goal, 3)) {
+			fprintf(stderr, "%d: break\n", retries);
 			break;
+		}
 		/* Did memory.reclaim return 0 incorrectly? */
-		else if (reclaimed)
-			return false;
 
 		to_reclaim = current - goal;
 		snprintf(buf, sizeof(buf), "%ld", to_reclaim);
+		fprintf(stderr, "%d: current=%ld goal=%ld buf=%s\n", retries, current, goal, buf);
 		err = cg_write(memcg, "memory.reclaim", buf);
-		if (!err)
+		if (!err) {
+			fprintf(stderr, "%d: err=%d str=%s current=%ld\n", retries, err, strerror(err), cg_read_long(memcg, "memory.current"));
 			reclaimed = true;
+		}
 		else if (err != -EAGAIN)
 			return false;
 	}

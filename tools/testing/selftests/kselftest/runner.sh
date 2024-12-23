@@ -10,7 +10,7 @@ export per_test_logging=
 # Defaults for "settings" file fields:
 # "timeout" how many seconds to let each test run before running
 # over our soft timeout limit.
-export kselftest_default_timeout=45
+export kselftest_default_timeout=${kselftest_default_timeout:-45}
 
 # There isn't a shell-agnostic way to find the path of a sourced file,
 # so we must rely on BASE_DIR being set to find other tools.
