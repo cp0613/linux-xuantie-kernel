@@ -10,10 +10,14 @@
 
 #define RV_INSN_FUNCT3_MASK	GENMASK(14, 12)
 #define RV_INSN_FUNCT3_OPOFF	12
+#define RV_INSN_FUNCT7_MASK	GENMASK(31, 25)
+#define RV_INSN_FUNCT7_OPOFF	25
 #define RV_INSN_OPCODE_MASK	GENMASK(6, 0)
 #define RV_INSN_OPCODE_OPOFF	0
 #define RV_INSN_FUNCT12_OPOFF	20
 
+#define RV_EXTRACT_FUNCT3(x)	(((x) & RV_INSN_FUNCT3_MASK) >> RV_INSN_FUNCT3_OPOFF)
+#define RV_EXTRACT_FUNCT7(x)	(((x) & RV_INSN_FUNCT7_MASK) >> RV_INSN_FUNCT7_OPOFF)
 #define RV_ENCODE_FUNCT3(f_)	(RVG_FUNCT3_##f_ << RV_INSN_FUNCT3_OPOFF)
 #define RV_ENCODE_FUNCT12(f_)	(RVG_FUNCT12_##f_ << RV_INSN_FUNCT12_OPOFF)
 
@@ -59,11 +63,22 @@
 #define RV_B_IMM_4_1_MASK	GENMASK(3, 0)
 #define RV_B_IMM_11_MASK	GENMASK(0, 0)
 
+/* The bit field of immediate value in S-type instruction */
+#define RV_S_IMM_SIGN_OPOFF	31
+#define RV_S_IMM_4_0_OPOFF	7
+#define RV_S_IMM_11_5_OPOFF	25
+#define RV_S_IMM_SIGN_OFF	11
+#define RV_S_IMM_4_0_OFF	0
+#define RV_S_IMM_11_5_OFF	5
+#define RV_S_IMM_4_0_MASK	GENMASK(4, 0)
+#define RV_S_IMM_11_5_MASK	GENMASK(6, 0)
+
 /* The register offset in RVG instruction */
 #define RVG_RS1_OPOFF		15
 #define RVG_RS2_OPOFF		20
 #define RVG_RD_OPOFF		7
 #define RVG_RS1_MASK		GENMASK(4, 0)
+#define RVG_RS2_MASK		GENMASK(4, 0)
 #define RVG_RD_MASK		GENMASK(4, 0)
 
 /* The bit field of immediate value in RVC J instruction */
@@ -107,6 +122,60 @@
 #define RVC_B_IMM_2_1_MASK	GENMASK(1, 0)
 #define RVC_B_IMM_5_MASK	GENMASK(0, 0)
 
+/* The bit field of immediate value in RVC ADDI4SPN instruction */
+#define RVC_ADDI4SPN_IMM_5_4_OPOFF	11
+#define RVC_ADDI4SPN_IMM_9_6_OPOFF	7
+#define RVC_ADDI4SPN_IMM_2_OPOFF	6
+#define RVC_ADDI4SPN_IMM_3_OPOFF	5
+#define RVC_ADDI4SPN_IMM_5_4_OFF	4
+#define RVC_ADDI4SPN_IMM_9_6_OFF	6
+#define RVC_ADDI4SPN_IMM_2_OFF		2
+#define RVC_ADDI4SPN_IMM_3_OFF		3
+#define RVC_ADDI4SPN_IMM_5_4_MASK	GENMASK(1, 0)
+#define RVC_ADDI4SPN_IMM_9_6_MASK	GENMASK(3, 0)
+#define RVC_ADDI4SPN_IMM_2_MASK		GENMASK(0, 0)
+#define RVC_ADDI4SPN_IMM_3_MASK		GENMASK(0, 0)
+
+/* The bit field of immediate value in RVC ADDI instruction */
+#define RVC_ADDI_IMM_4_0_OPOFF		2
+#define RVC_ADDI_IMM_SIGN_OFF		5
+#define RVC_ADDI_IMM_4_0_OFF		0
+#define RVC_ADDI_IMM_4_0_MASK		GENMASK(4, 0)
+
+/* The bit field of immediate value in RVC ADDI16SP instruction */
+#define RVC_ADDI16SP_IMM_4_OPOFF	6
+#define RVC_ADDI16SP_IMM_6_OPOFF	5
+#define RVC_ADDI16SP_IMM_8_7_OPOFF	3
+#define RVC_ADDI16SP_IMM_5_OPOFF	2
+#define RVC_ADDI16SP_IMM_SIGN_OFF		9
+#define RVC_ADDI16SP_IMM_4_OFF		4
+#define RVC_ADDI16SP_IMM_6_OFF		6
+#define RVC_ADDI16SP_IMM_8_7_OFF	7
+#define RVC_ADDI16SP_IMM_5_OFF		5
+#define RVC_ADDI16SP_IMM_4_MASK		GENMASK(0, 0)
+#define RVC_ADDI16SP_IMM_6_MASK		GENMASK(0, 0)
+#define RVC_ADDI16SP_IMM_8_7_MASK	GENMASK(1, 0)
+#define RVC_ADDI16SP_IMM_5_MASK		GENMASK(0, 0)
+
+/* The bit field of immediate value in RVC LDSP instruction */
+#define RVC_LDSP_IMM_5_OPOFF		12
+#define RVC_LDSP_IMM_4_3_OPOFF		5
+#define RVC_LDSP_IMM_8_6_OPOFF		2
+#define RVC_LDSP_IMM_5_OFF			5
+#define RVC_LDSP_IMM_4_3_OFF		3
+#define RVC_LDSP_IMM_8_6_OFF		6
+#define RVC_LDSP_IMM_5_MASK			GENMASK(0, 0)
+#define RVC_LDSP_IMM_4_3_MASK		GENMASK(1, 0)
+#define RVC_LDSP_IMM_8_6_MASK		GENMASK(2, 0)
+
+/* The bit field of immediate value in RVC SDSP instruction */
+#define RVC_SDSP_IMM_5_3_OPOFF		10
+#define RVC_SDSP_IMM_8_6_OPOFF		7
+#define RVC_SDSP_IMM_5_3_OFF		3
+#define RVC_SDSP_IMM_8_6_OFF		6
+#define RVC_SDSP_IMM_5_3_MASK		GENMASK(2, 0)
+#define RVC_SDSP_IMM_8_6_MASK		GENMASK(2, 0)
+
 #define RVC_INSN_FUNCT4_MASK	GENMASK(15, 12)
 #define RVC_INSN_FUNCT4_OPOFF	12
 #define RVC_INSN_FUNCT3_MASK	GENMASK(15, 13)
@@ -114,6 +183,9 @@
 #define RVC_INSN_J_RS1_MASK	GENMASK(11, 7)
 #define RVC_INSN_J_RS2_MASK	GENMASK(6, 2)
 #define RVC_INSN_OPCODE_MASK	GENMASK(1, 0)
+#define RVC_INSN_OPCODE_OPOFF	0
+#define RVC_EXTRACT_OPCODE(x)	(((x) & RVC_INSN_OPCODE_MASK) >> RVC_INSN_OPCODE_OPOFF)
+#define RVC_EXTRACT_FUNCT3(x)	(((x) & RVC_INSN_FUNCT3_MASK) >> RVC_INSN_FUNCT3_OPOFF)
 #define RVC_ENCODE_FUNCT3(f_)	(RVC_FUNCT3_##f_ << RVC_INSN_FUNCT3_OPOFF)
 #define RVC_ENCODE_FUNCT4(f_)	(RVC_FUNCT4_##f_ << RVC_INSN_FUNCT4_OPOFF)
 
@@ -121,19 +193,29 @@
 #define RVC_C0_RS1_OPOFF	7
 #define RVC_C0_RS2_OPOFF	2
 #define RVC_C0_RD_OPOFF		2
+#define RVC_C0_RD_MASK		GENMASK(3, 0)
 
 /* The register offset in RVC op=C1 instruction */
 #define RVC_C1_RS1_OPOFF	7
 #define RVC_C1_RS2_OPOFF	2
 #define RVC_C1_RD_OPOFF		7
+#define RVC_C1_RD_MASK		GENMASK(4, 0)
 
 /* The register offset in RVC op=C2 instruction */
 #define RVC_C2_RS1_OPOFF	7
 #define RVC_C2_RS2_OPOFF	2
 #define RVC_C2_RD_OPOFF		7
 #define RVC_C2_RS1_MASK		GENMASK(4, 0)
+#define RVC_C2_RS2_MASK		GENMASK(4, 0)
 
 /* parts of opcode for RVG*/
+#define RVG_OPCODE_LOAD		0x03 /*lb lh lw ld lbu lhu lwu*/
+#define RVG_OPCODE_STORE	0x23 /*sb sh sw sd*/
+#define RVG_OPCODE_LUI		0x37
+#define RVG_OPCODE_OP_IMM	0x13 /*addi slti sltiu xori ori andi slli srli srai*/
+#define RVG_OPCODE_OP_IMM32	0x1b /*addiw slliw srliw sraiw*/
+#define RVG_OPCODE_OP		0x33 /*add sub sll slt sltu xor srl sra or and | mul mulh mulhsu mulhu div divu rem remu*/
+#define RVG_OPCODE_OP32		0x3b /*addw subw sllw sraw | mulw divw divuw remw remuw*/
 #define RVG_OPCODE_FENCE	0x0f
 #define RVG_OPCODE_AUIPC	0x17
 #define RVG_OPCODE_BRANCH	0x63
@@ -167,6 +249,9 @@
 #define RVC_OPCODE_C2		0x2
 
 /* parts of funct3 code for I, M, A extension*/
+#define RVG_FUNCT3_ADD		0x0
+#define RVG_FUNCT3_ADDI		0x0
+#define RVG_FUNCT3_ANDI		0x7
 #define RVG_FUNCT3_JALR		0x0
 #define RVG_FUNCT3_BEQ		0x0
 #define RVG_FUNCT3_BNE		0x1
@@ -174,12 +259,26 @@
 #define RVG_FUNCT3_BGE		0x5
 #define RVG_FUNCT3_BLTU		0x6
 #define RVG_FUNCT3_BGEU		0x7
+#define RVG_FUNCT3_SD		0x3
+#define RVG_FUNCT3_LD		0x3
+
+/* parts of funct7 code for I, M, A extension*/
+#define RVG_FUNCT7_ADD		0x0
 
 /* parts of funct3 code for C extension*/
 #define RVC_FUNCT3_C_BEQZ	0x6
 #define RVC_FUNCT3_C_BNEZ	0x7
 #define RVC_FUNCT3_C_J		0x5
 #define RVC_FUNCT3_C_JAL	0x1
+#define RVC_FUNCT3_C_ADDI4SPN	0x0
+#define RVC_FUNCT3_C_ADDI	0x0
+#define RVC_FUNCT3_C_ADDIW	0x1
+#define RVC_FUNCT3_C_LI		0x2
+#define RVC_FUNCT3_C_ADDI16SP	0x3
+#define RVC_FUNCT3_C_SLLI	0x0
+#define RVC_FUNCT3_C_LWSP	0x2
+#define RVC_FUNCT3_C_LDSP	0x3
+#define RVC_FUNCT3_C_SDSP	0x7
 #define RVC_FUNCT4_C_JR		0x8
 #define RVC_FUNCT4_C_JALR	0x9
 #define RVC_FUNCT4_C_EBREAK	0x9
@@ -206,6 +305,15 @@
 #define RVC_MATCH_C_JR		(RVC_ENCODE_FUNCT4(C_JR) | RVC_OPCODE_C2)
 #define RVC_MATCH_C_JALR	(RVC_ENCODE_FUNCT4(C_JALR) | RVC_OPCODE_C2)
 #define RVC_MATCH_C_EBREAK	(RVC_ENCODE_FUNCT4(C_EBREAK) | RVC_OPCODE_C2)
+#define RVC_MATCH_C_ADDI4SPN	(RVC_ENCODE_FUNCT3(C_ADDI4SPN) | RVC_OPCODE_C0)
+#define RVC_MATCH_C_ADDI	(RVC_ENCODE_FUNCT3(C_ADDI) | RVC_OPCODE_C1)
+#define RVC_MATCH_C_ADDIW	(RVC_ENCODE_FUNCT3(C_ADDIW) | RVC_OPCODE_C1)
+#define RVC_MATCH_C_LI	(RVC_ENCODE_FUNCT3(C_LI) | RVC_OPCODE_C1)
+#define RVC_MATCH_C_ADDI16SP	(RVC_ENCODE_FUNCT3(C_ADDI16SP) | RVC_OPCODE_C1)
+#define RVC_MATCH_C_SLLI	(RVC_ENCODE_FUNCT3(C_SLLI) | RVC_OPCODE_C2)
+#define RVC_MATCH_C_LWSP	(RVC_ENCODE_FUNCT3(C_LWSP) | RVC_OPCODE_C2)
+#define RVC_MATCH_C_LDSP	(RVC_ENCODE_FUNCT3(C_LDSP) | RVC_OPCODE_C2)
+#define RVC_MATCH_C_SDSP	(RVC_ENCODE_FUNCT3(C_SDSP) | RVC_OPCODE_C2)
 
 #define RVG_MASK_AUIPC		(RV_INSN_OPCODE_MASK)
 #define RVG_MASK_JALR		(RV_INSN_FUNCT3_MASK | RV_INSN_OPCODE_MASK)
@@ -231,6 +339,11 @@
 #define __INSN_LENGTH_GE_32	_UL(0x3)
 #define __INSN_OPCODE_MASK	_UL(0x7F)
 #define __INSN_BRANCH_OPCODE	_UL(RVG_OPCODE_BRANCH)
+
+#define __INSN_LENGTH		4
+#define __INSN_C_LENGTH		2
+#define RISCV_INSN_IS_C(insn)	(((insn) & __INSN_LENGTH_MASK) != __INSN_LENGTH_MASK)
+#define RISCV_INSN_LEN(insn)	(RISCV_INSN_IS_C(insn) ? __INSN_C_LENGTH : __INSN_LENGTH)
 
 #define __RISCV_INSN_FUNCS(name, mask, val)				\
 static __always_inline bool riscv_insn_is_##name(u32 code)		\
@@ -295,6 +408,10 @@ static __always_inline bool riscv_insn_is_c_jalr(u32 code)
 	({typeof(x) x_ = (x); \
 	(RV_X(x_, RVG_RS1_OPOFF, RVG_RS1_MASK)); })
 
+#define RV_EXTRACT_RS2_REG(x) \
+	({typeof(x) x_ = (x); \
+	(RV_X(x_, RVG_RS2_OPOFF, RVG_RS2_MASK)); })
+
 #define RV_EXTRACT_RD_REG(x) \
 	({typeof(x) x_ = (x); \
 	(RV_X(x_, RVG_RD_OPOFF, RVG_RD_MASK)); })
@@ -322,9 +439,27 @@ static __always_inline bool riscv_insn_is_c_jalr(u32 code)
 	(RV_X(x_, RV_B_IMM_11_OPOFF, RV_B_IMM_11_MASK) << RV_B_IMM_11_OFF) | \
 	(RV_IMM_SIGN(x_) << RV_B_IMM_SIGN_OFF); })
 
+#define RV_EXTRACT_STYPE_IMM(x) \
+	({typeof(x) x_ = (x); \
+	(RV_X(x_, RV_S_IMM_4_0_OPOFF, RV_S_IMM_4_0_MASK) << RV_S_IMM_4_0_OFF) | \
+	(RV_X(x_, RV_S_IMM_11_5_OPOFF, RV_S_IMM_11_5_MASK) << RV_S_IMM_11_5_OFF) | \
+	(RV_IMM_SIGN(x_) << RV_S_IMM_SIGN_OFF); })
+
+#define RVC_EXTRACT_C0_RD_REG(x) \
+	({typeof(x) x_ = (x); \
+	(RVC_X(x_, RVC_C0_RD_OPOFF, RVC_C0_RD_MASK)); })
+
+#define RVC_EXTRACT_C1_RD_REG(x) \
+	({typeof(x) x_ = (x); \
+	(RVC_X(x_, RVC_C1_RD_OPOFF, RVC_C1_RD_MASK)); })
+
 #define RVC_EXTRACT_C2_RS1_REG(x) \
 	({typeof(x) x_ = (x); \
-	(RV_X(x_, RVC_C2_RS1_OPOFF, RVC_C2_RS1_MASK)); })
+	(RVC_X(x_, RVC_C2_RS1_OPOFF, RVC_C2_RS1_MASK)); })
+
+#define RVC_EXTRACT_C2_RS2_REG(x) \
+	({typeof(x) x_ = (x); \
+	(RVC_X(x_, RVC_C2_RS2_OPOFF, RVC_C2_RS2_MASK)); })
 
 #define RVC_EXTRACT_JTYPE_IMM(x) \
 	({typeof(x) x_ = (x); \
@@ -344,6 +479,51 @@ static __always_inline bool riscv_insn_is_c_jalr(u32 code)
 	(RVC_X(x_, RVC_B_IMM_5_OPOFF, RVC_B_IMM_5_MASK) << RVC_B_IMM_5_OFF) | \
 	(RVC_X(x_, RVC_B_IMM_7_6_OPOFF, RVC_B_IMM_7_6_MASK) << RVC_B_IMM_7_6_OFF) | \
 	(RVC_IMM_SIGN(x_) << RVC_B_IMM_SIGN_OFF); })
+
+#define RVC_EXTRACT_ADDI4SPN_IMM(x) \
+	({ typeof(x) x_ = (x); \
+	((RVC_X(x_, RVC_ADDI4SPN_IMM_5_4_OPOFF, RVC_ADDI4SPN_IMM_5_4_MASK) \
+		<< RVC_ADDI4SPN_IMM_5_4_OFF) | \
+	(RVC_X(x_, RVC_ADDI4SPN_IMM_9_6_OPOFF, RVC_ADDI4SPN_IMM_9_6_MASK) \
+		<< RVC_ADDI4SPN_IMM_9_6_OFF) | \
+	(RVC_X(x_, RVC_ADDI4SPN_IMM_2_OPOFF, RVC_ADDI4SPN_IMM_2_MASK) \
+		<< RVC_ADDI4SPN_IMM_2_OFF) | \
+	(RVC_X(x_, RVC_ADDI4SPN_IMM_3_OPOFF, RVC_ADDI4SPN_IMM_3_MASK) \
+		<< RVC_ADDI4SPN_IMM_3_OFF)); })
+
+#define RVC_EXTRACT_ADDI_IMM(x) \
+	({ typeof(x) x_ = (x); \
+	(RVC_X(x_, RVC_ADDI_IMM_4_0_OPOFF, RVC_ADDI_IMM_4_0_MASK) \
+		<< RVC_ADDI_IMM_4_0_OFF) | \
+	(RVC_IMM_SIGN(x_) << RVC_ADDI_IMM_SIGN_OFF); })
+
+#define RVC_EXTRACT_ADDI16SP_IMM(x) \
+	({ typeof(x) x_ = (x); \
+	(RVC_X(x_, RVC_ADDI16SP_IMM_4_OPOFF, RVC_ADDI16SP_IMM_4_MASK) \
+		<< RVC_ADDI16SP_IMM_4_OFF) |	\
+	(RVC_X(x_, RVC_ADDI16SP_IMM_6_OPOFF, RVC_ADDI16SP_IMM_6_MASK) \
+		<< RVC_ADDI16SP_IMM_6_OFF) |	\
+	(RVC_X(x_, RVC_ADDI16SP_IMM_5_OPOFF, RVC_ADDI16SP_IMM_5_MASK) \
+		<< RVC_ADDI16SP_IMM_5_OFF) |	\
+	(RVC_X(x_, RVC_ADDI16SP_IMM_8_7_OPOFF, RVC_ADDI16SP_IMM_8_7_MASK) \
+		<< RVC_ADDI16SP_IMM_8_7_OFF) | \
+	(RVC_IMM_SIGN(x_) << RVC_ADDI16SP_IMM_SIGN_OFF); })
+
+#define RVC_EXTRACT_LDSP_IMM(x)	\
+	({ typeof(x) x_ = (x); \
+	((RVC_X(x_, RVC_LDSP_IMM_5_OPOFF, RVC_LDSP_IMM_5_MASK) \
+		<< RVC_LDSP_IMM_5_OFF) | \
+	(RVC_X(x_, RVC_LDSP_IMM_4_3_OPOFF, RVC_LDSP_IMM_4_3_MASK) \
+		<< RVC_LDSP_IMM_4_3_OFF) |	\
+	(RVC_X(x_, RVC_LDSP_IMM_8_6_OPOFF, RVC_LDSP_IMM_8_6_MASK) \
+		<< RVC_LDSP_IMM_8_6_OFF)); })
+
+#define RVC_EXTRACT_SDSP_IMM(x)	\
+	({ typeof(x) x_ = (x); \
+	((RVC_X(x_, RVC_SDSP_IMM_5_3_OPOFF, RVC_SDSP_IMM_5_3_MASK) \
+		<< RVC_SDSP_IMM_5_3_OFF) |	\
+	(RVC_X(x_, RVC_SDSP_IMM_8_6_OPOFF, RVC_SDSP_IMM_8_6_MASK) \
+		<< RVC_SDSP_IMM_8_6_OFF)); })
 
 #define RVG_EXTRACT_SYSTEM_CSR(x) \
 	({typeof(x) x_ = (x); RV_X(x_, RVG_SYSTEM_CSR_OFF, RVG_SYSTEM_CSR_MASK); })
