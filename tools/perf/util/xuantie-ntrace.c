@@ -50,7 +50,8 @@ xuantie_ntrace_process_event(struct perf_session *session __maybe_unused,
 	return 0;
 }
 
-static void xuantie_ntrace__dump_event(struct auxtrace_buffer *buffer)
+static void xuantie_ntrace__dump_event(struct perf_session *session __maybe_unused,
+				       struct auxtrace_buffer *buffer)
 {
 	struct xuantie_saved_config *saved_config;
 	const char *color = PERF_COLOR_BLUE;
@@ -61,6 +62,8 @@ static void xuantie_ntrace__dump_event(struct auxtrace_buffer *buffer)
 	}
 
 	saved_config = (struct xuantie_saved_config *)buffer->data;
+	pr_info("%s size: 0x%lx offset: 0x%lx\n",
+		__func__, buffer->size, buffer->offset);
 	fprintf(stdout, "\n");
 	color_fprintf(stdout, color,
 		      ". xuantie_ntrace_dump: saved_configs are:\n");
@@ -84,8 +87,9 @@ static void xuantie_ntrace__dump_event(struct auxtrace_buffer *buffer)
 			    buffer->data + sizeof(struct xuantie_saved_config),
 			    buffer->size -
 				    sizeof(struct xuantie_saved_config)) == 0) {
-			color_fprintf(stdout, color, ". ntrace messages are:");
-			xt_trace_program_trace_display_node();
+			color_fprintf(stdout, color,
+				      ". ntrace messages are:\n");
+			xt_trace_program_trace_display(false, false, false);
 		}
 	}
 }
@@ -100,11 +104,13 @@ static void dump_queued_data(struct xuantie_ntrace *ntrace,
 	 * This is because the queues can contain multiple entries of the same
 	 * buffer that were split on aux records.
 	 */
-	for (i = 0; i < ntrace->queues.nr_queues; ++i)
+	//for (i = 0; i < ntrace->queues.nr_queues; ++i)
+	for (i = 0; i < 1; ++i)
 		list_for_each_entry(buffer,
 				     &ntrace->queues.queue_array[i].head, list)
 			if (buffer->reference == event->reference)
-				xuantie_ntrace__dump_event(buffer);
+				xuantie_ntrace__dump_event(ntrace->session,
+							   buffer);
 }
 
 static int
@@ -137,7 +143,7 @@ xuantie_ntrace_process_auxtrace_event(struct perf_session *session,
 
 		if (dump_trace)
 			if (auxtrace_buffer__get_data(buffer, fd)) {
-				xuantie_ntrace__dump_event(buffer);
+				xuantie_ntrace__dump_event(session, buffer);
 				auxtrace_buffer__put_data(buffer);
 			}
 	} else if (dump_trace) {
@@ -186,6 +192,32 @@ static int xuantie_ntrace_flush(struct perf_session *session __maybe_unused,
 			       saved_config->timestamp_bits);
 			printf("saved_config->trace_ram_wrap is 0x%x\n",
 			       saved_config->trace_ram_wrap);
+
+			if (buffer->size >
+			    sizeof(struct xuantie_saved_config)) {
+				pr_info("Parsing buffer size: 0x%lx  offset 0x%lx\n",
+					buffer->size, buffer->offset);
+				if (xuantie_ntrace_decoder__process_metedata(
+					    saved_config,
+					    buffer->data +
+						    sizeof(struct xuantie_saved_config),
+					    buffer->size -
+						    sizeof(struct xuantie_saved_config))) {
+					printf("XUANTIE NTrace: parse metedata failed.\n");
+					return 0;
+				}
+				if (xuantie_ntrace_decoder__process_full_message(
+					    session, buffer) == 0) {
+					color_fprintf(
+						stdout, color,
+						". ntrace full messages are:\n");
+					xt_trace_program_trace_display(
+						true, false, false);
+				} else {
+					printf("XUANTIE NTrace: parse full message failed.\n");
+					return 0;
+				}
+			}
 
 			buffer = auxtrace_buffer__next(queue, buffer);
 		}
