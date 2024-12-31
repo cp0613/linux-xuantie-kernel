@@ -15,11 +15,6 @@ UBSAN_SANITIZE := n
 ccflags-y := -fno-stack-protector
 ccflags-y += -DDISABLE_BRANCH_PROFILING
 
-CPPFLAGS_vdso.lds += -P -C -U$(ARCH)
-ifneq ($(filter vgettimeofday, $(vdso-syms)),)
-CPPFLAGS_vdso.lds += -DHAS_VGETTIMEOFDAY
-endif
-
 # strip rule for the .so file
 $(obj)/%.so: OBJCOPYFLAGS := -S
 $(obj)/%.so: $(obj)/%.so.dbg FORCE
@@ -40,18 +35,27 @@ vdso32-cc-syms += hwprobe
 VDSO32_CC_FLAGS := -march=rv32g -mabi=ilp32
 VDSO32_LD_FLAGS := -melf32lriscv
 
+vdso32-lds-syms  = vdso
+
 obj-as-vdso32  = $(patsubst %, %-32.o, $(vdso32-as-syms)) note-32.o
 obj-as-vdso32 := $(addprefix $(obj)/, $(obj-as-vdso32))
 
 obj-cc-vdso32  = $(patsubst %, %-32.o, $(vdso32-cc-syms))
 obj-cc-vdso32 := $(addprefix $(obj)/, $(obj-cc-vdso32))
 
-targets += $(obj-as-vdso32) $(obj-cc-vdso32) vdso32.so vdso32.so.dbg vdso32.lds
+obj-lds-vdso32  = $(patsubst %, %-32.lds, $(vdso32-lds-syms))
+obj-lds-vdso32 := $(addprefix $(obj)/, $(obj-lds-vdso32))
 
-$(obj)/vdso32.so.dbg: $(obj)/vdso.lds $(obj-as-vdso32) $(obj-cc-vdso32) FORCE
+targets += $(obj-lds-vdso32) $(obj-as-vdso32) $(obj-cc-vdso32) vdso32.so vdso32.so.dbg
+
+$(obj)/vdso32.so.dbg: $(obj-lds-vdso32) $(obj-as-vdso32) $(obj-cc-vdso32) FORCE
 	$(call if_changed,vdso32ld)
 LDFLAGS_vdso32.so.dbg = -shared -S -soname=linux-vdso32.so.1 \
 	--build-id=sha1 --hash-style=both --eh-frame-hdr
+
+quiet_cmd_vdso32lds = LDS32 $@
+      cmd_vdso32lds = $(CPP) $(cpp_flags) -P -U$(ARCH) \
+                         -D__ASSEMBLY__ -DLINKER_SCRIPT -o $@ $<
 
 # The DSO images are built using a special linker script
 # Make sure only to export the intended __vdso_xxx symbol offsets.
@@ -69,6 +73,8 @@ quiet_cmd_vdso32cc = VDSO32CC $@
 # Force dependency
 $(obj)/vdso32.o: $(obj)/vdso32.so
 
+$(obj-lds-vdso32): %-32.lds: %.lds.S FORCE
+	$(call if_changed_dep,vdso32lds)
 $(obj-as-vdso32): %-32.o: %.S FORCE
 	$(call if_changed_dep,vdso32as)
 $(obj-cc-vdso32): %-32.o: %.c FORCE
@@ -101,18 +107,30 @@ vdso64-as-syms += sys_hwprobe
 vdso64-cc-syms  = vgettimeofday
 vdso64-cc-syms += hwprobe
 
+vdso64-lds-syms  = vdso
+
 obj-as-vdso64  = $(patsubst %, %-64.o, $(vdso64-as-syms)) note-64.o
 obj-as-vdso64 := $(addprefix $(obj)/, $(obj-as-vdso64))
 
 obj-cc-vdso64  = $(patsubst %, %-64.o, $(vdso64-cc-syms))
 obj-cc-vdso64 := $(addprefix $(obj)/, $(obj-cc-vdso64))
 
-targets += $(obj-as-vdso64) $(obj-cc-vdso64) vdso64.so vdso64.so.dbg vdso64.lds
+obj-lds-vdso64  = $(patsubst %, %-64.lds, $(vdso64-lds-syms))
+obj-lds-vdso64 := $(addprefix $(obj)/, $(obj-lds-vdso64))
 
-$(obj)/vdso64.so.dbg: $(obj)/vdso.lds $(obj-as-vdso64) $(obj-cc-vdso64) FORCE
+targets += $(obj-lds-vdso64) $(obj-as-vdso64) $(obj-cc-vdso64) vdso64.so vdso64.so.dbg
+
+$(obj)/vdso64.so.dbg: $(obj-lds-vdso64) $(obj-as-vdso64) $(obj-cc-vdso64) FORCE
 	$(call if_changed,vdso64ld)
 LDFLAGS_vdso64.so.dbg = -shared -S -soname=linux-vdso64.so.1 \
 	--build-id=sha1 --hash-style=both --eh-frame-hdr
+
+VDSO64_CPP_FLAGS = -DHAS_VGETTIMEOFDAY
+
+quiet_cmd_vdso64lds = LDS64 $@
+      cmd_vdso64lds = $(CPP) $(cpp_flags) $(VDSO64_CPP_FLAGS) -P -U$(ARCH) \
+                         -D__ASSEMBLY__ -DLINKER_SCRIPT -o $@ $<
+
 # The DSO images are built using a special linker script
 # Make sure only to export the intended __vdso_xxx symbol offsets.
 quiet_cmd_vdso64ld = VDSO64LD  $@
@@ -129,6 +147,8 @@ quiet_cmd_vdso64cc = VDSO64CC $@
 # Force dependency
 $(obj)/vdso64.o: $(obj)/vdso64.so
 
+$(obj-lds-vdso64): %-64.lds: %.lds.S FORCE
+	$(call if_changed_dep,vdso64lds)
 $(obj-as-vdso64): %-64.o: %.S FORCE
 	$(call if_changed_dep,vdso64as)
 $(obj-cc-vdso64): %-64.o: %.c FORCE
