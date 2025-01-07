@@ -1544,8 +1544,6 @@ static int check_ftrace_location(struct kprobe *p)
 	if (ftrace_location(addr) == addr) {
 #ifdef CONFIG_KPROBES_ON_FTRACE
 		p->flags |= KPROBE_FLAG_FTRACE;
-#else	/* !CONFIG_KPROBES_ON_FTRACE */
-		return -EINVAL;
 #endif
 	}
 	return 0;
