@@ -25,9 +25,9 @@
 
 #include "vhost.h"
 
-static bool enable_map = true;
-module_param(enable_map, bool, 0444);
-MODULE_PARM_DESC(enable_map, "Enable/disable the device to use designed set_map IOVA map");
+static bool use_sva = true;
+module_param(use_sva, bool, 0644);
+MODULE_PARM_DESC(use_sva, "Enable/disable the device to use IOMMU SVA");
 
 enum {
 	VHOST_VDPA_BACKEND_FEATURES =
@@ -619,7 +619,7 @@ static long vhost_vdpa_vring_ioctl(struct vhost_vdpa *v, unsigned int cmd,
 		return ops->set_group_asid(vdpa, idx, s.num);
 	case VHOST_GET_VRING_BASE:
 		r = ops->get_vq_state(v->vdpa, idx, &vq_state);
-		if (r)
+		if (r && r != -EOPNOTSUPP)
 			return r;
 
 		if (vhost_has_feature(vq, VIRTIO_F_RING_PACKED)) {
@@ -801,10 +801,19 @@ static void vhost_vdpa_general_unmap(struct vhost_vdpa *v,
 				     struct vhost_iotlb_map *map, u32 asid)
 {
 	struct vdpa_device *vdpa = v->vdpa;
+	struct device *dma_dev = vdpa_get_dma_dev(vdpa);
 	const struct vdpa_config_ops *ops = vdpa->config;
-	if (ops->dma_map) {
+
+	if (use_sva) {
+		if (vdpa->sva) {
+			iommu_dev_disable_feature(dma_dev, IOMMU_DEV_FEAT_SVA);
+			iommu_dev_disable_feature(dma_dev, IOMMU_DEV_FEAT_IOPF);
+			iommu_sva_unbind_device(vdpa->sva);
+			vdpa->sva = NULL;
+		}
+	} else if (ops->dma_map) {
 		ops->dma_unmap(vdpa, asid, map->start, map->size);
-	} else if (!enable_map || ops->set_map == NULL) {
+	} else if (ops->set_map == NULL) {
 		iommu_unmap(v->domain, map->start, map->size);
 	}
 }
@@ -881,6 +890,48 @@ static int perm_to_iommu_flags(u32 perm)
 	return flags | IOMMU_CACHE;
 }
 
+static int vhost_vdpa_set_sva(struct vdpa_device *vdpa)
+{
+	int ret = 0;
+	u32 pasid;
+	struct device *dma_dev = vdpa->dma_dev;
+
+	ret = iommu_dev_enable_feature(dma_dev, IOMMU_DEV_FEAT_IOPF);
+	if (ret) {
+		dev_err(dma_dev, "Failed to enable IOPF feature! ret = %pe\n", ERR_PTR(ret));
+		goto failed;
+	}
+
+	ret = iommu_dev_enable_feature(dma_dev, IOMMU_DEV_FEAT_SVA);
+	if (ret) {
+		dev_err(dma_dev, "Failed to enable SVA feature! ret = %pe\n", ERR_PTR(ret));
+		iommu_dev_disable_feature(dma_dev, IOMMU_DEV_FEAT_IOPF);
+		goto failed;
+	}
+
+	vdpa->sva = iommu_sva_bind_device(dma_dev, current->mm);
+	if (IS_ERR(vdpa->sva)) {
+		ret = PTR_ERR(vdpa->sva);
+		dev_err(dma_dev, "Process %d - iommu_sva_bind_device failed: %d\n",
+		  current->pid, ret);
+		goto failed;
+	}
+
+	pasid = iommu_sva_get_pasid(vdpa->sva);
+	if (pasid == IOMMU_PASID_INVALID) {
+		dev_err(dma_dev, "pasid allocation failed: IOMMU_PASID_INVALID\n");
+		iommu_sva_unbind_device(vdpa->sva);
+		ret = IOMMU_PASID_INVALID;
+		goto failed;
+	}
+
+	dev_info(dma_dev, "device is bound to iommu, and key is (task: %d -> pasid: %d)",
+		current->pid, pasid);
+
+failed:
+	return ret;
+}
+
 static int vhost_vdpa_map(struct vhost_vdpa *v, struct vhost_iotlb *iotlb,
 			  u64 iova, u64 size, u64 pa, u32 perm, void *opaque)
 {
@@ -895,9 +946,12 @@ static int vhost_vdpa_map(struct vhost_vdpa *v, struct vhost_iotlb *iotlb,
 	if (r)
 		return r;
 
-	if (ops->dma_map) {
+	if (use_sva) {
+		if (!v->in_batch)
+			r = vhost_vdpa_set_sva(vdpa);
+	} else if (ops->dma_map) {
 		r = ops->dma_map(vdpa, asid, iova, size, pa, perm, opaque);
-	} else if (enable_map && ops->set_map) {
+	} else if (ops->set_map) {
 		if (!v->in_batch)
 			r = ops->set_map(vdpa, asid, iotlb);
 	} else {
@@ -925,11 +979,13 @@ static void vhost_vdpa_unmap(struct vhost_vdpa *v,
 
 	vhost_vdpa_iotlb_unmap(v, iotlb, iova, iova + size - 1, asid);
 
-	if (enable_map && ops->set_map) {
+	if (use_sva) {
+		if (!v->in_batch)
+			vhost_vdpa_set_sva(vdpa);
+	} else if (ops->set_map) {
 		if (!v->in_batch)
 			ops->set_map(vdpa, asid, iotlb);
 	}
-
 }
 
 static int vhost_vdpa_va_map(struct vhost_vdpa *v,
@@ -1183,7 +1239,9 @@ static int vhost_vdpa_process_iotlb_msg(struct vhost_dev *dev, u32 asid,
 		v->in_batch = true;
 		break;
 	case VHOST_IOTLB_BATCH_END:
-		if (enable_map && v->in_batch && ops->set_map)
+		if (v->in_batch && use_sva)
+			vhost_vdpa_set_sva(vdpa);
+		else if (v->in_batch && ops->set_map)
 			ops->set_map(vdpa, asid, iotlb);
 		v->in_batch = false;
 		break;
@@ -1214,11 +1272,10 @@ static int vhost_vdpa_domain_setup_msi(struct vhost_vdpa *v)
 	struct device *dma_dev = vdpa_get_dma_dev(vdpa);
 	phys_addr_t sw_msi_start;
 	struct iommu_resv_region *resv;
-	const struct vdpa_config_ops *ops = vdpa->config;
 	LIST_HEAD(resv_regions);
 
 	/* remapping MSI only when manage their own IOVA allocation */
-	if (!enable_map || (ops->set_map == NULL && ops->dma_map == NULL))
+	if (!use_sva)
 		return 0;
 
 	iommu_get_resv_regions(dma_dev, &resv_regions);
@@ -1243,7 +1300,7 @@ static int vhost_vdpa_alloc_domain(struct vhost_vdpa *v)
 	int ret;
 
 	/* Device want to do DMA by itself */
-	if ((enable_map && ops->set_map) || ops->dma_map)
+	if (use_sva || ops->set_map || ops->dma_map)
 		return 0;
 
 	bus = dma_dev->bus;
@@ -1493,8 +1550,8 @@ static int vhost_vdpa_probe(struct vdpa_device *vdpa)
 	/* We can't support platform IOMMU device with more than 1
 	 * group or as
 	 */
-	if ((!enable_map || (!ops->set_map && !ops->dma_map)) &&
-	    (vdpa->ngroups > 1 || vdpa->nas > 1))
+	if (!use_sva && (!ops->set_map && !ops->dma_map &&
+	    (vdpa->ngroups > 1 || vdpa->nas > 1)))
 		return -EOPNOTSUPP;
 
 	v = kzalloc(sizeof(*v), GFP_KERNEL | __GFP_RETRY_MAYFAIL);

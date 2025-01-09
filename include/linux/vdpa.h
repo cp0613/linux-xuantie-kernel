@@ -74,6 +74,7 @@ struct vdpa_mgmt_dev;
  *                   because core frees it; use driver_set_override() to
  *                   set or clear it.
  * @config: the configuration ops for this device.
+ * @sva: handle to a device-mm bond
  * @cf_lock: Protects get and set access to configuration layout.
  * @index: device index
  * @features_valid: were features initialized? for legacy guests
@@ -89,6 +90,7 @@ struct vdpa_device {
 	struct device *dma_dev;
 	const char *driver_override;
 	const struct vdpa_config_ops *config;
+	struct iommu_sva *sva;
 	struct rw_semaphore cf_lock; /* Protects get/set config */
 	unsigned int index;
 	bool features_valid;
