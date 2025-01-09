@@ -487,8 +487,9 @@ static int aia_hgei_init(void)
 		hgctrl = per_cpu_ptr(&aia_hgei, cpu);
 		raw_spin_lock_init(&hgctrl->lock);
 		if (kvm_riscv_aia_nr_hgei) {
-			hgctrl->free_bitmap =
-				BIT(kvm_riscv_aia_nr_hgei + 1) - 1;
+			hgctrl->free_bitmap = (kvm_riscv_aia_nr_hgei == 63) ?
+						ULONG_MAX :
+				(BIT(kvm_riscv_aia_nr_hgei + 1) - 1);
 			hgctrl->free_bitmap &= ~BIT(0);
 		} else
 			hgctrl->free_bitmap = 0;
