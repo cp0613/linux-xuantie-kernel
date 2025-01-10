@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <linux/bitops.h>
 #include "thread.h"
 #include "thread-stack.h"
 #include "map.h"
@@ -76,11 +77,15 @@ static uint64_t get_an_insn(struct perf_session *session,
 	u8 cpumode = PERF_RECORD_MISC_KERNEL;
 	struct addr_location al;
 	struct dso *dso;
+	struct thread *thread;
 	u64 offset;
 	u32 length;
 
-	struct thread *thread = machine__findnew_thread(
-		&session->machines.host, buffer->pid, buffer->tid);
+	thread = machine__findnew_thread(&session->machines.host, buffer->pid, buffer->tid);
+	if (cpumode == PERF_RECORD_MISC_KERNEL) {
+		//addr += 0xffffff0000000000; // PA40
+		addr = sign_extend64(addr, 39); // PA40
+	}
 
 	cpumode = riscv_get_cpu_mode(addr);
 
@@ -94,6 +99,10 @@ static uint64_t get_an_insn(struct perf_session *session,
 	    dso__data_status_seen(dso, DSO_DATA_STATUS_SEEN_ITRACE))
 		goto error_end;
 	offset = map__map_ip(al.map, addr);
+
+	if (cpumode == PERF_RECORD_MISC_KERNEL)
+		offset -= (0xffffffff80002000 - 0x3000); // readelf -S vmlinux in .text
+
 	map__load(al.map);
 	length = dso__data_read_offset(dso, maps__machine(thread__maps(thread)),
 				       offset, buf, 2);
@@ -126,7 +135,8 @@ static uint64_t get_an_insn(struct perf_session *session,
 			goto error_end;
 		}
 	}
-
+	//printf("al.level=%c al.addr=0x%lx addr=0x%lx len=%d insn=%lx\n",
+	//	al.level, al.addr, addr, *len, *(uint64_t *)buf);
 	return *(uint64_t *)buf;
 
 error_end:
