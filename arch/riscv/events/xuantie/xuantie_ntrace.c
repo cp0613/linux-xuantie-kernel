@@ -207,7 +207,7 @@ static int xuantie_ntrace_event_add(struct perf_event *event, int flags)
 	struct xuantie_ntrace_component *component;
 	struct xuantie_ntrace_aux_buf *buf;
 
-	pr_info("%s:%d flags=%d\n", __func__, __LINE__, flags);
+	// pr_info("%s:%d flags=%d\n", __func__, __LINE__, flags);
 
 	/* Set interfaces needed for Trace Control Lib. */
 	xt_trace_control_init_rw_trace_interface(console_msg_out,
@@ -311,8 +311,8 @@ static int xuantie_ntrace_event_add(struct perf_event *event, int flags)
 	buf = perf_aux_output_begin(&xuantie_ntrace_pmu.handle, event);
 	if (!buf)
 		pr_info("%s:%d perf_aux_output_begin failed\n", __func__, __LINE__);
-	pr_info("base=%p length=%ld nr_pages=%ld pos=%ld\n", buf->base, buf->length,
-		buf->nr_pages, buf->pos);
+	//pr_info("base=%p length=%ld nr_pages=%ld pos=%ld\n", buf->base, buf->length,
+	//	buf->nr_pages, buf->pos);
 
 	return 0;
 
@@ -346,7 +346,7 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int flags)
 	struct xuantie_saved_conifg config;
 	struct xuantie_ntrace_aux_buf *buf = perf_get_aux(&xuantie_ntrace_pmu.handle);
 
-	pr_info("%s:%d flags=%d\n", __func__, __LINE__, flags);
+	// pr_info("%s:%d flags=%d\n", __func__, __LINE__, flags);
 
 	/* Disable and close all funnels and encoders, just disable the sink. */
 	list_for_each_entry(component, &xuantie_ntrace_controllers, list) {
@@ -456,10 +456,6 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int flags)
 		buf->pos += trace_data_section0_size + trace_data_section1_size;
 	} else {
 		if (trace_data_section0_size) {
-			pr_info("component_sink->sink.vaddr 0x%p, trace_data_section0_start 0x%llx, trace_data_section0_size 0x%x, buf->pos 0x%lx\n",
-				component_sink->sink.vaddr,
-				trace_data_section0_start,
-				trace_data_section0_size, buf->pos);
 			memcpy(buf->base + buf->pos,
 			       component_sink->sink.vaddr +
 				       trace_data_section0_start,
@@ -467,10 +463,6 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int flags)
 			buf->pos += trace_data_section0_size;
 		}
 		if (trace_data_section1_size) {
-			pr_info("component_sink->sink.vaddr 0x%p, trace_data_section1_start 0x%llx, trace_data_section1_size 0x%x, buf->pos 0x%lx\n",
-				component_sink->sink.vaddr,
-				trace_data_section1_start,
-				trace_data_section1_size, buf->pos);
 			memcpy(buf->base + buf->pos,
 			       component_sink->sink.vaddr +
 				       trace_data_section1_start,
@@ -492,8 +484,8 @@ static void xuantie_ntrace_event_start(struct perf_event *event, int flags)
 	int found_encoder = 0;
 	u32 hartid = cpuid_to_hartid_map(event->cpu);
 
-	pr_info("%s:%d on_cpu=%d cpu=%d[hart%d] flags=%d\n", __func__, __LINE__,
-		event->oncpu, event->cpu, hartid, flags);
+	//pr_info("%s:%d on_cpu=%d cpu=%d[hart%d] flags=%d\n", __func__, __LINE__,
+	//	event->oncpu, event->cpu, hartid, flags);
 
 	list_for_each_entry(component, &xuantie_ntrace_controllers, list) {
 		if (component->type == XUANTIE_NTRACE_ENCODER) {
@@ -518,8 +510,8 @@ static void xuantie_ntrace_event_stop(struct perf_event *event, int flags)
 	struct xuantie_ntrace_component *component;
 	u32 hartid = cpuid_to_hartid_map(event->cpu);
 
-	pr_info("%s:%d on_cpu=%d cpu=%d[hart%d] flags=%d\n", __func__, __LINE__,
-		event->oncpu, event->cpu, hartid, flags);
+	//pr_info("%s:%d on_cpu=%d cpu=%d[hart%d] flags=%d\n", __func__, __LINE__,
+	//	event->oncpu, event->cpu, hartid, flags);
 
 	list_for_each_entry(component, &xuantie_ntrace_controllers, list) {
 		if (component->type == XUANTIE_NTRACE_ENCODER) {
@@ -557,7 +549,7 @@ static void *xuantie_ntrace_buffer_setup_aux(struct perf_event *event, void **pa
 	struct page **pagelist;
 	int i;
 
-	pr_info("%s:%d\n", __func__, __LINE__);
+	// pr_info("%s:%d\n", __func__, __LINE__);
 
 	if (overwrite) {
 		pr_warn("Overwrite mode is not supported\n");
@@ -601,7 +593,7 @@ static void xuantie_ntrace_buffer_free_aux(void *aux)
 {
 	struct xuantie_ntrace_aux_buf *buf = aux;
 
-	pr_info("%s:%d\n", __func__, __LINE__);
+	// pr_info("%s:%d\n", __func__, __LINE__);
 
 	vunmap(buf->base);
 	kfree(buf);
@@ -609,27 +601,27 @@ static void xuantie_ntrace_buffer_free_aux(void *aux)
 
 static void xuantie_ntrace_event_read(struct perf_event *event)
 {
-	pr_info("%s:%d\n", __func__, __LINE__);
+	// pr_info("%s:%d\n", __func__, __LINE__);
 }
 
 static void xuantie_ntrace_event_enable(struct pmu *pmu)
 {
-	//pr_info("%s:%d\n", __func__, __LINE__);
+	// pr_info("%s:%d\n", __func__, __LINE__);
 }
 
 static void xuantie_ntrace_event_disable(struct pmu *pmu)
 {
-	//pr_info("%s:%d\n", __func__, __LINE__);
+	// pr_info("%s:%d\n", __func__, __LINE__);
 }
 
 static void xuantie_ntrace_event_filters_sync(struct perf_event *event)
 {
-	pr_info("%s:%d\n", __func__, __LINE__);
+	// pr_info("%s:%d\n", __func__, __LINE__);
 }
 
 static int xuantie_ntrace_event_filters_validate(struct list_head *filters)
 {
-	pr_info("%s:%d\n", __func__, __LINE__);
+	// pr_info("%s:%d\n", __func__, __LINE__);
 	return 0;
 }
 
@@ -676,7 +668,7 @@ static __init int xuantie_ntrace_init(void)
 		xuantie_ntrace_event_filters_validate;
 
 	ret = perf_pmu_register(&xuantie_ntrace_pmu.pmu, "xuantie_ntrace", -1);
-	pr_info("%s:%d ret=%d\n", __func__, __LINE__, ret);
+	//pr_info("%s:%d perf_pmu_register ret=%d\n", __func__, __LINE__, ret);
 	return ret;
 }
 late_initcall(xuantie_ntrace_init);
