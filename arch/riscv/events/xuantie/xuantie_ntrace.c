@@ -490,18 +490,18 @@ static void xuantie_ntrace_event_start(struct perf_event *event, int flags)
 {
 	struct xuantie_ntrace_component *component;
 	int found_encoder = 0;
+	u32 hartid = cpuid_to_hartid_map(event->cpu);
 
-	pr_info("%s:%d on_cpu=%d cpu=%d flags=%d\n", __func__, __LINE__,
-		event->oncpu, event->cpu, flags);
+	pr_info("%s:%d on_cpu=%d cpu=%d[hart%d] flags=%d\n", __func__, __LINE__,
+		event->oncpu, event->cpu, hartid, flags);
 
 	list_for_each_entry(component, &xuantie_ntrace_controllers, list) {
 		if (component->type == XUANTIE_NTRACE_ENCODER) {
-			if (component->encoder.cpu == event->cpu) {
+			if (component->encoder.cpu == hartid) {
 				if (xt_trace_encoder_enable(
 					    &component->encoder_info,
 					    component->encoder.enable_timestamp))
-					pr_info("Failed enable encoder for cpu %d\n",
-						event->cpu);
+					pr_info("Failed enable encoder for hart %d\n", hartid);
 				else {
 					found_encoder = 1;
 					break;
@@ -516,18 +516,19 @@ static void xuantie_ntrace_event_start(struct perf_event *event, int flags)
 static void xuantie_ntrace_event_stop(struct perf_event *event, int flags)
 {
 	struct xuantie_ntrace_component *component;
+	u32 hartid = cpuid_to_hartid_map(event->cpu);
 
-	pr_info("%s:%d on_cpu=%d cpu=%d flags=%d\n", __func__, __LINE__,
-		event->oncpu, event->cpu, flags);
+	pr_info("%s:%d on_cpu=%d cpu=%d[hart%d] flags=%d\n", __func__, __LINE__,
+		event->oncpu, event->cpu, hartid, flags);
 
 	list_for_each_entry(component, &xuantie_ntrace_controllers, list) {
 		if (component->type == XUANTIE_NTRACE_ENCODER) {
-			if (component->encoder.cpu == event->oncpu) {
+			if (component->encoder.cpu == hartid) {
 				if (xt_trace_encoder_disable(
 					    &component->encoder_info,
 					    component->encoder.enable_timestamp))
-					pr_info("Failed disenable encoder for cpu %d\n",
-						event->cpu);
+					pr_info("Failed disenable encoder for hart %d\n",
+						hartid);
 				else
 					break;
 			}
