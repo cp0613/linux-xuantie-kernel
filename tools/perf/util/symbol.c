@@ -1572,8 +1572,8 @@ int dso__load_bfd_symbols(struct dso *dso, const char *debugfile)
 		goto out_close;
 	}
 
-	if (bfd_get_flavour(abfd) == bfd_target_elf_flavour)
-		goto out_close;
+	//if (bfd_get_flavour(abfd) == bfd_target_elf_flavour)
+	//	goto out_close;
 
 	symbols_size = bfd_get_symtab_upper_bound(abfd);
 	if (symbols_size == 0) {

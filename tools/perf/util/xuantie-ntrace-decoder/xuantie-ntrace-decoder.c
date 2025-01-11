@@ -80,6 +80,7 @@ static uint64_t get_an_insn(struct perf_session *session,
 	struct thread *thread;
 	u64 offset;
 	u32 length;
+	struct symbol *sym = NULL;
 
 	thread = machine__findnew_thread(&session->machines.host, buffer->pid, buffer->tid);
 	if (cpumode == PERF_RECORD_MISC_KERNEL) {
@@ -112,6 +113,11 @@ static uint64_t get_an_insn(struct perf_session *session,
 		       addr, dso->long_name ? dso->long_name : "Unknown");
 		goto error_end;
 	}
+
+	sym = dso__find_symbol(dso, al.addr);
+	if (sym)
+		printf("al.level=%c al.addr=0x%lx addr=0x%lx sym.name=%s\n",
+			al.level, al.addr, addr, sym->name);
 
 	/* insn length */
 	*len = riscv_insn_length(buf[0]);
