@@ -1712,6 +1712,7 @@ xt_trace_filter_config(struct xt_trace_encoder_control_info *encoder_info,
 	}
 
 	// config trTeFilteriControl
+	tr_te_filter_i_control = 1;
 	tr_te_filter_i_control =
 		u32_set_fields(tr_te_filter_i_control, 1, 1,
 			       config_info->filter_match_privilege ? 1 : 0);
@@ -1783,7 +1784,7 @@ xt_trace_filter_config(struct xt_trace_encoder_control_info *encoder_info,
 
 		if (read_value_tmp == -1)
 			return -1;
-		if (read_value_tmp != tr_te_filter_i_control) {
+		if (read_value_tmp != tr_te_filter_i_match_inst) {
 			// msg
 			sprintf(str,
 				"Config trTeFilteriMatchInst 0x%x for trace encoder(0x%llx) get 0x%x.\n",

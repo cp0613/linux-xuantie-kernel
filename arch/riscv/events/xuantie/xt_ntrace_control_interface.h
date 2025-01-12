@@ -465,6 +465,38 @@ struct xt_trace_encoder_config_info {
 	uint32_t timestamp_prescale;
 };
 
+#define FILTER_U_MODE    (1 << 0)
+#define FILTER_S_HS_MODE (1 << 1)
+#define FILTER_M_MODE    (1 << 3)
+#define FILTER_D_MODE    (1 << 4)
+#define FILTER_VU_MODE   (1 << 5)
+#define FILTER_VS_MODE   (1 << 6)
+
+enum filter_comparator_type {
+	COMPTYPE_IADDR = 0,
+	COMPTYPE_CONTEXT = 1,
+	COMPTYPE_TVAL = 2,
+	COMPTYPE_DADDR = 3,
+};
+
+enum filter_comparator_function {
+	COMPFUNCTION_EQUAL = 0,
+	COMPFUNCTION_NOT_EQUAL = 1,
+	COMPFUNCTION_LESS_THAN = 2,
+	COMPFUNCTION_LESS_OR_EQUAL = 3,
+	COMPFUNCTION_GREATER_THAN = 4,
+	COMPFUNCTION_GREATER_OR_EQUAL = 5,
+	COMPFUNCTION_ALWAYS_FALSE = 6,
+	COMPFUNCTION_ALWAYS_TRUE = 7,
+};
+
+enum filter_comparator_match_mode {
+	COMPMATCHMODE_PRIMARY_TRUE = 0,
+	COMPMATCHMODE_BOTH_TRUE = 1,
+	COMPMATCHMODE_EITHER_FALSE = 2,
+	COMPMATCHMODE_PRIMARY_TRUE_UNTIL_SECOND_TRUE = 3,
+};
+
 struct xt_trace_encoder_filter_config_info {
 	uint32_t filter_i;
 

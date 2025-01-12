@@ -108,6 +108,102 @@ build_encoder_config_info(struct xuantie_ntrace_component *component,
 	}
 }
 
+static void build_filter_one(struct xt_trace_encoder_filter_config_info *filter_config)
+{
+	u32 priv_filter_value = FILTER_U_MODE | FILTER_S_HS_MODE; /* only u+s */
+	bool comparator_enable = false;
+	u32 prim_func = COMPFUNCTION_ALWAYS_TRUE;
+	u32 second_func = COMPFUNCTION_ALWAYS_TRUE;
+
+	if (xuantie_ntrace_pmu.filter_attr.start_addr
+	|| xuantie_ntrace_pmu.filter_attr.stop_addr) {
+		comparator_enable = true;
+
+		if (xuantie_ntrace_pmu.filter_attr.start_addr == 0
+		&& xuantie_ntrace_pmu.filter_attr.stop_addr != 0) {
+			prim_func = COMPFUNCTION_ALWAYS_TRUE;
+			second_func = COMPFUNCTION_LESS_OR_EQUAL;
+		} else if (xuantie_ntrace_pmu.filter_attr.start_addr != 0
+		&& xuantie_ntrace_pmu.filter_attr.stop_addr == 0) {
+			prim_func = COMPFUNCTION_GREATER_OR_EQUAL;
+			second_func = COMPFUNCTION_ALWAYS_TRUE;
+		} else {
+			prim_func = COMPFUNCTION_GREATER_OR_EQUAL;
+			second_func = COMPFUNCTION_LESS_OR_EQUAL;
+		}
+	} else
+		comparator_enable = false;
+
+	if (xuantie_ntrace_pmu.filter_attr.priv_mode == XUANTIE_NTRACE_PRIV_MODE_EXCL_KERN)
+		priv_filter_value = FILTER_U_MODE;
+	else if (xuantie_ntrace_pmu.filter_attr.priv_mode == XUANTIE_NTRACE_PRIV_MODE_EXCL_USER)
+		priv_filter_value = FILTER_S_HS_MODE;
+	else
+		priv_filter_value = FILTER_U_MODE | FILTER_S_HS_MODE;
+
+	memset(filter_config, 0, sizeof(struct xt_trace_encoder_filter_config_info));
+
+	filter_config->filter_i = 0;
+	filter_config->filter_match_privilege = true;
+	filter_config->filter_match_ecause = false;
+	filter_config->filter_match_interrupt = false;
+	filter_config->match_privilege_value = priv_filter_value;
+	filter_config->match_value_interrupt = 0;
+	filter_config->match_chioce_ecause = 0;
+	filter_config->filter_match_dtype = false;
+	filter_config->filter_match_dsize = false;
+	filter_config->match_value_dtype = 0;
+	filter_config->match_value_dsize = 0;
+
+	// comparator 1
+	filter_config->comparator1_enable = comparator_enable;
+	filter_config->comp1_filter_number = 0;
+	// config
+	filter_config->comp1_primary_input = COMPTYPE_IADDR;       // p_iaddr
+	filter_config->comp1_primary_function = prim_func;
+	filter_config->comp1_primary_notify = false;
+	filter_config->comp1_secondary_input = COMPTYPE_IADDR;     // s_iaddr
+	filter_config->comp1_secondary_function = second_func;
+	filter_config->comp1_secondary_notify = false;
+	filter_config->comp1_match_mode = COMPMATCHMODE_BOTH_TRUE; // both primary&secondary true
+	filter_config->comp1_primary_match_low_value = xuantie_ntrace_pmu.filter_attr.start_addr;
+	filter_config->comp1_primary_match_high_value = 0x0;
+	filter_config->comp1_secondary_match_low_value = xuantie_ntrace_pmu.filter_attr.stop_addr;
+	filter_config->comp1_secondary_match_high_value = 0x0;
+
+	// comparator 2
+	filter_config->comparator2_enable = false;
+	// filter_config->comp2_filter_number;
+	////config
+	// filter_config->comp2_primary_input;
+	// filter_config->comp2_primary_function;
+	// filter_config->comp2_primary_notify;
+	// filter_config->comp2_secondary_input;
+	// filter_config->comp2_secondary_function;
+	// filter_config->comp2_secondary_notify;
+	// filter_config->comp2_match_mode;
+	// filter_config->comp2_primary_match_low_value;
+	// filter_config->comp2_primary_match_high_value;
+	// filter_config->comp2_secondary_match_low_value;
+	// filter_config->comp2_secondary_match_high_value;
+
+	// comparator 3
+	filter_config->comparator3_enable = false;
+	// filter_config->comp3_filter_number;
+	////config
+	// filter_config->comp3_primary_input;
+	// filter_config->comp3_primary_function;
+	// filter_config->comp3_primary_notify;
+	// filter_config->comp3_secondary_input;
+	// filter_config->comp3_secondary_function;
+	// filter_config->comp3_secondary_notify;
+	// filter_config->comp3_match_mode;
+	// filter_config->comp3_primary_match_low_value;
+	// filter_config->comp3_primary_match_high_value;
+	// filter_config->comp3_secondary_match_low_value;
+	// filter_config->comp3_secondary_match_high_value;
+}
+
 static void
 build_funnel_config_info(struct xuantie_ntrace_component *component,
 			 struct xt_trace_funnel_config_info *funnel_config)
@@ -253,6 +349,7 @@ static int xuantie_ntrace_event_add(struct perf_event *event, int flags)
 	list_for_each_entry(component, &xuantie_ntrace_controllers, list) {
 		if (component->type == XUANTIE_NTRACE_ENCODER) {
 			struct xt_trace_encoder_config_info encoder_config;
+			struct xt_trace_encoder_filter_config_info filter_config;
 
 			build_encoder_config_info(component, &encoder_config);
 			if (xt_trace_encoder_config(&component->encoder_info,
@@ -263,6 +360,9 @@ static int xuantie_ntrace_event_add(struct perf_event *event, int flags)
 			}
 
 			//FIXME: add filter?
+			build_filter_one(&filter_config);
+			if (xt_trace_filter_config(&component->encoder_info, &filter_config))
+				return -1;
 		} else if (component->type == XUANTIE_NTRACE_FUNNEL) {
 			struct xt_trace_funnel_config_info funnel_config;
 
