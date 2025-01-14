@@ -326,10 +326,10 @@ static int xuantie_ntrace__queue_aux_fragment(struct perf_session *session,
 		file_offset += aux_offset - auxtrace_event->offset +
 			       auxtrace_event->header.size;
 
-		pr_info("Queue buffer size: %#" PRI_lx64 " offset: %#" PRI_lx64
-			" tid: %d cpu: %d\n",
-			aux_size, aux_offset, auxtrace_event->tid,
-			auxtrace_event->cpu);
+		//pr_info("Queue buffer size: %#" PRI_lx64 " offset: %#" PRI_lx64
+		//	" tid: %d cpu: %d\n",
+		//	aux_size, aux_offset, auxtrace_event->tid,
+		//	auxtrace_event->cpu);
 		err = auxtrace_queues__add_event(&ntrace->queues, session,
 						 &auxtrace_fragment,
 						 file_offset, NULL);

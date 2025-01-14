@@ -23,9 +23,13 @@ struct xt_trace_address_range {
 
 struct xt_trace_program_flow_node {
 	uint64_t start_addr; // the start addr of this message
+	char saddr_dso[PATH_MAX];
+	char saddr_sym[PATH_MAX];
 	// the start addr of the next message
 	// also means the destination address of this message
 	uint64_t full_addr;
+	char faddr_dso[PATH_MAX];
+	char faddr_sym[PATH_MAX];
 	struct xt_trace_address_range *addr_range; // need free
 	struct xt_riscv_nexus_trace_message msg;
 	struct xt_riscv_nexus_trace_message *ownership; // no need to free
@@ -80,7 +84,7 @@ static uint64_t get_an_insn(struct perf_session *session,
 	struct thread *thread;
 	u64 offset;
 	u32 length;
-	struct symbol *sym = NULL;
+	//struct symbol *sym = NULL;
 
 	thread = machine__findnew_thread(&session->machines.host, buffer->pid, buffer->tid);
 	if (cpumode == PERF_RECORD_MISC_KERNEL) {
@@ -114,10 +118,10 @@ static uint64_t get_an_insn(struct perf_session *session,
 		goto error_end;
 	}
 
-	sym = dso__find_symbol(dso, al.addr);
-	if (sym)
-		printf("al.level=%c al.addr=0x%lx addr=0x%lx sym.name=%s\n",
-			al.level, al.addr, addr, sym->name);
+	//sym = dso__find_symbol(dso, al.addr);
+	//if (sym)
+	//	printf("al.level=%c al.addr=0x%lx addr=0x%lx sym.name=%s\n",
+	//		al.level, al.addr, addr, sym->name);
 
 	/* insn length */
 	*len = riscv_insn_length(buf[0]);
@@ -146,7 +150,7 @@ static uint64_t get_an_insn(struct perf_session *session,
 	return *(uint64_t *)buf;
 
 error_end:
-	printf("can't read insn for addr %#" PRIx64 "\n", addr);
+	//printf("can't read insn for addr %#" PRIx64 "\n", addr);
 	addr_location__exit(&al);
 	return 1;
 }
@@ -688,13 +692,85 @@ static void xt_trace_free_program_flow_node(void)
 /*************************************************************
  * Process U-addr and FULL-addr
  *************************************************************/
-static int32_t
-xt_trace_get_start_and_full_addr(struct xt_trace_program_flow_node *node)
+static void xt_trace_get_dso_and_symbol_for_node(
+	struct xt_trace_program_flow_node *node,
+	struct perf_session *session, struct auxtrace_buffer *buffer)
 {
+	u8 cpumode = PERF_RECORD_MISC_KERNEL;
+	struct addr_location al;
+	struct dso *dso = NULL;
+	struct symbol *sym = NULL;
+	struct thread *thread;
+	uint64_t addr;
+
+	thread = machine__findnew_thread(&session->machines.host, buffer->pid, buffer->tid);
+
+	addr = node->start_addr;
+	cpumode = riscv_get_cpu_mode(addr);
+	if (cpumode == PERF_RECORD_MISC_KERNEL) {
+		//addr += 0xffffff0000000000; // PA40
+		addr = sign_extend64(addr, 39); // PA40
+	}
+
+	addr_location__init(&al);
+	if (!thread__find_map(thread, cpumode, addr, &al))
+		goto next;
+	dso = map__dso(al.map);
+	if (!dso)
+		goto next;
+	//if (dso->data.status == DSO_DATA_STATUS_ERROR &&
+	//	dso__data_status_seen(dso, DSO_DATA_STATUS_SEEN_ITRACE))
+	//	goto next;
+	sym = dso__find_symbol(dso, al.addr);
+	if (sym) {
+		strcpy(node->saddr_sym, sym->name);
+		goto next;
+	}
+	map__load(al.map);
+	sym = dso__find_symbol(dso, al.addr);
+	if (sym)
+		strcpy(node->saddr_sym, sym->name);
+
+next:
+	if (dso)
+		strcpy(node->saddr_dso, dso->name);
+	addr_location__exit(&al);
+	addr = node->full_addr;
+	cpumode = riscv_get_cpu_mode(addr);
+	if (cpumode == PERF_RECORD_MISC_KERNEL) {
+		//addr += 0xffffff0000000000; // PA40
+		addr = sign_extend64(addr, 39); // PA40
+	}
+
+	addr_location__init(&al);
+	if (!thread__find_map(thread, cpumode, addr, &al))
+		goto end;
+	dso = map__dso(al.map);
+	if (!dso)
+		goto end;
+	//if (dso->data.status == DSO_DATA_STATUS_ERROR &&
+	//	dso__data_status_seen(dso, DSO_DATA_STATUS_SEEN_ITRACE))
+	//	goto end;
+	map__load(al.map);
+	sym = dso__find_symbol(dso, al.addr);
+	if (sym)
+		strcpy(node->faddr_sym, sym->name);
+end:
+	if (dso)
+		strcpy(node->faddr_dso, dso->name);
+	addr_location__exit(&al);
+}
+
+static int32_t
+xt_trace_get_start_and_full_addr(struct xt_trace_program_flow_node *node,
+	struct perf_session *session, struct auxtrace_buffer *buffer)
+{
+	bool unknown_tcode = false;
+
 	switch (node->msg.tcode) {
 	case TCODE_DIRECTBRANCH:
 		node->full_addr = node->start_addr +
-				  (node->msg.sub_value.directbranch.i_cnt * 2);
+			get_resource_full_icnt(node->msg.sub_value.directbranch.i_cnt) * 2;
 		break;
 		// u-addr
 	case TCODE_INDIRECTBRANCH:
@@ -744,8 +820,12 @@ xt_trace_get_start_and_full_addr(struct xt_trace_program_flow_node *node)
 		node->full_addr = range->end_addr;
 	} break;
 	default:
+		unknown_tcode = true;
 		break;
 	}
+
+	if (!unknown_tcode)
+		xt_trace_get_dso_and_symbol_for_node(node, session, buffer);
 
 	return 0;
 }
@@ -799,13 +879,6 @@ int32_t xuantie_ntrace_decoder__process_metedata(
 				}
 				memcpy(&node->msg, &msg, sizeof(msg));
 
-				// if (xt_trace_get_start_and_full_addr(node)) {
-				//	free(node);
-				//	goto error_end;
-				// }
-				// // ignore i-cnt and hist
-				// node->start_addr = node->full_addr;
-				// pre_full_addr = node->full_addr;
 				xt_trace_add_program_flow_node_to_list(node);
 
 				error_message_happened = false;
@@ -830,157 +903,21 @@ int32_t xuantie_ntrace_decoder__process_metedata(
 			ownership = &node->msg;
 			break;
 		case TCODE_DIRECTBRANCH:
-			node->ownership = ownership;
-			// node->start_addr = pre_full_addr;
-			// node->full_addr = pre_full_addr +
-			//	msg.sub_value.directbranch.i_cnt;
-
-			// // update pre_full_addr
-			// pre_full_addr = node->full_addr;
-			break;
 		case TCODE_INDIRECTBRANCH:
+		case TCODE_PROGTRACESYNC:
+		case TCODE_DIRECTBRANCHSYNC:
+		case TCODE_INDIRECTBRANCHSYNC:
+		case TCODE_RESOURCEFULL:
+		case TCODE_INDIRECTBRANCHHIST:
+		case TCODE_INDIRECTBRANCHHISTSYNC:
+		case TCODE_PROGTRACECORRELATION:
 			node->ownership = ownership;
-			// node->start_addr = pre_full_addr;
-			// if (xt_trace_analyze_i_cnt_vs_hist(
-			//	msg.sub_value.indirectbranch.i_cnt, pre_full_addr, 0,
-			//	&node->addr_range)) {
-			//	free(node);
-			//	goto error_end;
-			// }
-			// if (xt_trace_get_start_and_full_addr(node)) {
-			//	free(node);
-			//	goto error_end;
-			// }
-
-			// // update pre_full_addr
-			// pre_full_addr = node->full_addr;
 			break;
 		case TCODE_ERROR:
 			error_message_happened = true;
-			if (msg.sub_value.error.etype ==
-				    ERROR_MSG_ETYPE_STANDARD &&
-			    (msg.sub_value.error.etype &
-			     ERROR_MSG_ECODE_OWNERSHIP))
+			if (msg.sub_value.error.etype == ERROR_MSG_ETYPE_STANDARD &&
+				(msg.sub_value.error.etype & ERROR_MSG_ECODE_OWNERSHIP))
 				ownership = NULL;
-			break;
-		case TCODE_PROGTRACESYNC:
-			node->ownership = ownership;
-			// node->start_addr = pre_full_addr;
-			// if (xt_trace_analyze_i_cnt_vs_hist(
-			//	msg.sub_value.progtracesync.i_cnt, pre_full_addr, 0,
-			//	&node->addr_range)) {
-			//	free(node);
-			//	goto error_end;
-			// }
-			// if (xt_trace_get_start_and_full_addr(node)) {
-			//	free(node);
-			//	goto error_end;
-			// }
-
-			// // update pre_full_addr
-			// pre_full_addr = node->full_addr;
-			break;
-		case TCODE_DIRECTBRANCHSYNC:
-			node->ownership = ownership;
-			// node->start_addr = pre_full_addr;
-			// if (xt_trace_analyze_i_cnt_vs_hist(
-			//	msg.sub_value.directbranchsync.i_cnt, pre_full_addr, 0,
-			//	&node->addr_range)) {
-			//	free(node);
-			//	goto error_end;
-			// }
-			// if (xt_trace_get_start_and_full_addr(node)) {
-			//	free(node);
-			//	goto error_end;
-			// }
-
-			// // update pre_full_addr
-			// pre_full_addr = node->full_addr;
-			break;
-		case TCODE_INDIRECTBRANCHSYNC:
-			node->ownership = ownership;
-			// node->start_addr = pre_full_addr;
-			// if (xt_trace_analyze_i_cnt_vs_hist(
-			//	msg.sub_value.indirectbranchsync.i_cnt, pre_full_addr, 0,
-			//	&node->addr_range)) {
-			//	free(node);
-			//	goto error_end;
-			// }
-			// if (xt_trace_get_start_and_full_addr(node)) {
-			//	free(node);
-			//	goto error_end;
-			// }
-
-			// // update pre_full_addr
-			// pre_full_addr = node->full_addr;
-			break;
-		case TCODE_RESOURCEFULL:
-			node->ownership = ownership;
-			// node->start_addr = pre_full_addr;
-			// if (msg.sub_value.resourcefull.rcode == 0 ||
-			//	msg.sub_value.resourcefull.rcode == 2) {
-			//	if (xt_trace_analyze_i_cnt_vs_hist(
-			//		msg.sub_value.resourcefull.rdata0, pre_full_addr,
-			//		msg.sub_value.resourcefull.rdata1, &node->addr_range)) {
-			//		free(node);
-			//		goto error_end;
-			//	}
-			// }
-			// else if (msg.sub_value.resourcefull.rcode == 1) {
-			//	if (xt_trace_analyze_i_cnt_vs_hist(
-			//		0, pre_full_addr, msg.sub_value.resourcefull.rdata0,
-			//		&node->addr_range)) {
-			//		free(node);
-			//		goto error_end;
-			//	}
-			// }
-			// else {
-			//	// msg
-			//	free(node);
-			//	goto error_end;
-			// }
-
-			// if (xt_trace_get_start_and_full_addr(node)) {
-			//	free(node);
-			//	goto error_end;
-			// }
-
-			// // update pre_full_addr
-			// pre_full_addr = node->full_addr;
-			break;
-		case TCODE_INDIRECTBRANCHHIST:
-			node->ownership = ownership;
-			// node->start_addr = pre_full_addr;
-			// if (xt_trace_analyze_i_cnt_vs_hist(
-			//	msg.sub_value.indirectbranchhist.i_cnt, pre_full_addr,
-			//	msg.sub_value.indirectbranchhist.hist, &node->addr_range)) {
-			//	free(node);
-			//	goto error_end;
-			// }
-			// if (xt_trace_get_start_and_full_addr(node)) {
-			//	free(node);
-			//	goto error_end;
-			// }
-
-			// // update pre_full_addr
-			// pre_full_addr = node->full_addr;
-			break;
-		case TCODE_INDIRECTBRANCHHISTSYNC:
-			node->ownership = ownership;
-			// node->start_addr = pre_full_addr;
-			//if (xt_trace_analyze_i_cnt_vs_hist(
-			//	msg.sub_value.indirectbranchhistsync.i_cnt, pre_full_addr,
-			//	msg.sub_value.indirectbranchhistsync.hist, &node->addr_range)) {
-			//	free(node);
-			//	goto error_end;
-			// }
-			// if (xt_trace_get_start_and_full_addr(node)) {
-			//	free(node);
-			//	goto error_end;
-			// }
-
-			// // update pre_full_addr
-			// pre_full_addr = node->full_addr;
 			break;
 		case TCODE_REPEATBRANCH:
 			// set msg to the prev msg and set repeat_msg_count
@@ -991,23 +928,6 @@ int32_t xuantie_ntrace_decoder__process_metedata(
 				repeat_msg_count =
 					msg.sub_value.repeatbranch.b_cnt;
 			}
-			break;
-		case TCODE_PROGTRACECORRELATION:
-			node->ownership = ownership;
-			// node->start_addr = pre_full_addr;
-			// if (xt_trace_analyze_i_cnt_vs_hist(
-			//	msg.sub_value.progtracecorrelation.i_cnt, pre_full_addr,
-			//	msg.sub_value.progtracecorrelation.hist, &node->addr_range)) {
-			//	free(node);
-			//	goto error_end;
-			// }
-			// if (xt_trace_get_start_and_full_addr(node)) {
-			//	free(node);
-			//	goto error_end;
-			// }
-
-			// // update pre_full_addr
-			// pre_full_addr = node->full_addr;
 			break;
 		default:
 			// msg
@@ -1046,7 +966,7 @@ xt_trace_output_ntrace_message(struct xt_riscv_nexus_trace_message *msg,
 				     "Trace Event",
 				     "Restart from FIFO",
 				     "Reserved",
-				     "Exit from Powerdonw",
+				     "Exit from Powerdown",
 				     "Reserved",
 				     "Reserved",
 				     "Reserved",
@@ -1256,7 +1176,6 @@ xt_trace_output_ntrace_message(struct xt_riscv_nexus_trace_message *msg,
 		} break;
 	}
 
-
 	if (msg->has_src)
 		buf_p += sprintf(buf_p, ", src=%d", msg->src);
 	if (msg->has_timestamp)
@@ -1272,18 +1191,20 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 {
 	int ret = 0;
 	bool error_message_happened = true;
-	uint64_t pre_full_addr = 0;
 	struct xt_trace_program_flow_node *node = trace_program_header;
+	uint64_t pre_full_addr = 0;
 
 	while (node) {
 		if (error_message_happened) {
 			resource_full_clear();
 			if (xt_trace_msg_has_full_addr(&node->msg)) {
-				xt_trace_get_start_and_full_addr(node);
+				xt_trace_get_start_and_full_addr(node, session, buffer);
 
 				//ignore the i-cnt and hist of the first msg
 				node->start_addr = node->full_addr;
 				pre_full_addr = node->full_addr;
+				strcpy(node->saddr_dso, node->faddr_dso);
+				strcpy(node->saddr_sym, node->faddr_sym);
 
 				//go next
 				node = node->next;
@@ -1302,12 +1223,7 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 			break;
 		case TCODE_DIRECTBRANCH:
 			node->start_addr = pre_full_addr;
-			node->full_addr =
-				pre_full_addr +
-				get_resource_full_icnt(
-					node->msg.sub_value.directbranch
-						.i_cnt) *
-					2;
+			xt_trace_get_start_and_full_addr(node, session, buffer);
 			resource_full_clear();
 
 			// update pre_full_addr
@@ -1326,7 +1242,7 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 				break;
 			}
 
-			if (xt_trace_get_start_and_full_addr(node)) {
+			if (xt_trace_get_start_and_full_addr(node, session, buffer)) {
 				node->invalid = 1;
 				error_message_happened = true;
 				break;
@@ -1355,7 +1271,7 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 				error_message_happened = true;
 				break;
 			}
-			if (xt_trace_get_start_and_full_addr(node)) {
+			if (xt_trace_get_start_and_full_addr(node, session, buffer)) {
 				node->invalid = 1;
 				error_message_happened = true;
 				break;
@@ -1368,8 +1284,7 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 			node->start_addr = pre_full_addr;
 			ret = xt_trace_analyze_i_cnt_vs_hist(
 				session, buffer,
-				node->msg.sub_value.directbranchsync
-					.i_cnt,
+				node->msg.sub_value.directbranchsync.i_cnt,
 				pre_full_addr, 0, &node->addr_range);
 			resource_full_clear();
 			if (ret < 0) {
@@ -1377,7 +1292,7 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 				error_message_happened = true;
 				break;
 			}
-			if (xt_trace_get_start_and_full_addr(node)) {
+			if (xt_trace_get_start_and_full_addr(node, session, buffer)) {
 				node->invalid = 1;
 				error_message_happened = true;
 				break;
@@ -1390,8 +1305,7 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 			node->start_addr = pre_full_addr;
 			ret = xt_trace_analyze_i_cnt_vs_hist(
 				session, buffer,
-				node->msg.sub_value.indirectbranchsync
-					.i_cnt,
+				node->msg.sub_value.indirectbranchsync.i_cnt,
 				pre_full_addr, 0, &node->addr_range);
 			resource_full_clear();
 			if (ret < 0) {
@@ -1399,7 +1313,7 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 				error_message_happened = true;
 				break;
 			}
-			if (xt_trace_get_start_and_full_addr(node)) {
+			if (xt_trace_get_start_and_full_addr(node, session, buffer)) {
 				node->invalid = 1;
 				error_message_happened = true;
 				break;
@@ -1410,16 +1324,12 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 			break;
 		case TCODE_RESOURCEFULL:
 			node->start_addr = pre_full_addr;
-			if (node->msg.sub_value.resourcefull.rcode ==
-				0) {
+			if (node->msg.sub_value.resourcefull.rcode == 0) {
 				add_resource_full_icnt(
-					node->msg.sub_value.resourcefull
-						.rdata0);
-			} else if (node->msg.sub_value.resourcefull
-						.rcode == 1) {
+					node->msg.sub_value.resourcefull.rdata0);
+			} else if (node->msg.sub_value.resourcefull.rcode == 1) {
 				add_resource_full_hist(
-					node->msg.sub_value.resourcefull
-						.rdata0);
+					node->msg.sub_value.resourcefull.rdata0);
 			} else {
 				// msg
 				node->invalid = 1;
@@ -1431,11 +1341,9 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 			node->start_addr = pre_full_addr;
 			ret = xt_trace_analyze_i_cnt_vs_hist(
 				session, buffer,
-				node->msg.sub_value.indirectbranchhist
-					.i_cnt,
+				node->msg.sub_value.indirectbranchhist.i_cnt,
 				pre_full_addr,
-				node->msg.sub_value.indirectbranchhist
-					.hist,
+				node->msg.sub_value.indirectbranchhist.hist,
 				&node->addr_range);
 			resource_full_clear();
 			if (ret < 0) {
@@ -1443,7 +1351,7 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 				error_message_happened = true;
 				break;
 			}
-			if (xt_trace_get_start_and_full_addr(node)) {
+			if (xt_trace_get_start_and_full_addr(node, session, buffer)) {
 				node->invalid = 1;
 				error_message_happened = true;
 				break;
@@ -1456,11 +1364,9 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 			node->start_addr = pre_full_addr;
 			ret = xt_trace_analyze_i_cnt_vs_hist(
 				session, buffer,
-				node->msg.sub_value
-					.indirectbranchhistsync.i_cnt,
+				node->msg.sub_value.indirectbranchhistsync.i_cnt,
 				pre_full_addr,
-				node->msg.sub_value
-					.indirectbranchhistsync.hist,
+				node->msg.sub_value.indirectbranchhistsync.hist,
 				&node->addr_range);
 			resource_full_clear();
 			if (ret < 0) {
@@ -1468,7 +1374,7 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 				error_message_happened = true;
 				break;
 			}
-			if (xt_trace_get_start_and_full_addr(node)) {
+			if (xt_trace_get_start_and_full_addr(node, session, buffer)) {
 				node->invalid = 1;
 				error_message_happened = true;
 				break;
@@ -1484,11 +1390,9 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 			node->start_addr = pre_full_addr;
 			ret = xt_trace_analyze_i_cnt_vs_hist(
 				session, buffer,
-				node->msg.sub_value.progtracecorrelation
-					.i_cnt,
+				node->msg.sub_value.progtracecorrelation.i_cnt,
 				pre_full_addr,
-				node->msg.sub_value.progtracecorrelation
-					.hist,
+				node->msg.sub_value.progtracecorrelation.hist,
 				&node->addr_range);
 			resource_full_clear();
 			if (ret < 0) {
@@ -1496,7 +1400,7 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 				error_message_happened = true;
 				break;
 			}
-			if (xt_trace_get_start_and_full_addr(node)) {
+			if (xt_trace_get_start_and_full_addr(node, session, buffer)) {
 				node->invalid = 1;
 				error_message_happened = true;
 				break;
@@ -1524,8 +1428,7 @@ int32_t xt_trace_program_trace_display(bool with_addr, bool with_symbol,
 						bool with_insn)
 {
 	char str[STR_LEN_MAX] = { '\0' };
-	struct xt_trace_program_flow_node *node_p =
-		trace_program_header;
+	struct xt_trace_program_flow_node *node_p = trace_program_header;
 
 	while (node_p) {
 		// printf n-trace message contents
@@ -1537,7 +1440,7 @@ int32_t xt_trace_program_trace_display(bool with_addr, bool with_symbol,
 
 		if (strlen(str) >= STR_LEN_MAX) {
 			printf("str with length 0x%lx is bigger than STR_LEN_MAX 0x%x\n",
-					strlen(str), STR_LEN_MAX);
+				strlen(str), STR_LEN_MAX);
 			return -1;
 		}
 
@@ -1558,22 +1461,28 @@ int32_t xt_trace_program_trace_display(bool with_addr, bool with_symbol,
 			case TCODE_INDIRECTBRANCHHISTSYNC:
 				if (node_p->invalid)
 					break;
-				printf("    Start from 0x%lx, End to 0x%lx",
-						node_p->start_addr,
-						node_p->full_addr);
+				printf(
+				"    Start from 0x%lx %-30s (%s)  ==>  End to 0x%lx %-30s (%s)\n",
+					node_p->start_addr,
+					node_p->saddr_sym[0] == '\0' ?
+						"unknown" : node_p->saddr_sym,
+					node_p->saddr_dso[0] == '\0' ?
+						"unknown" : node_p->saddr_dso,
+					node_p->full_addr,
+					node_p->faddr_sym[0] == '\0' ?
+						"unknown" : node_p->faddr_sym,
+					node_p->faddr_dso[0] == '\0' ?
+						"unknown" : node_p->faddr_dso);
 				if (node_p->addr_range) {
-					struct xt_trace_address_range
-						*range_p =
-							node_p->addr_range;
-					printf(", include pc ranges:\n");
+					struct xt_trace_address_range *range_p =
+						node_p->addr_range;
+					printf("    Include pc ranges:\n");
 					while (range_p) {
-						printf("    {0x%lx, 0x%lx}\n",
-								range_p->start_addr,
-								range_p->end_addr);
+						printf("    {0x%lx, 0x%lx - 1}\n",
+							range_p->start_addr, range_p->end_addr);
 						range_p = range_p->next;
 					}
-				} else
-					printf(".\n");
+				}
 				break;
 			default:
 				//...
