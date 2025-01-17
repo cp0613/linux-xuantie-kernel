@@ -19,6 +19,9 @@
 LIST_HEAD(xuantie_ntrace_controllers);
 static struct xuantie_ntrace_pmu xuantie_ntrace_pmu;
 
+// Function Declaration
+static void xuantie_ntrace_event_start(struct perf_event *event, int flags);
+
 PMU_FORMAT_ATTR(start_addr, "config:0-63");
 PMU_FORMAT_ATTR(stop_addr,  "config1:0-63");
 
@@ -359,10 +362,10 @@ static int xuantie_ntrace_event_add(struct perf_event *event, int flags)
 				goto error_end;
 			}
 
-			//FIXME: add filter?
+			//always use fiter 0, pass M-mode
 			build_filter_one(&filter_config);
 			if (xt_trace_filter_config(&component->encoder_info, &filter_config))
-				return -1;
+				goto error_end;
 		} else if (component->type == XUANTIE_NTRACE_FUNNEL) {
 			struct xt_trace_funnel_config_info funnel_config;
 
@@ -413,6 +416,9 @@ static int xuantie_ntrace_event_add(struct perf_event *event, int flags)
 		pr_info("%s:%d perf_aux_output_begin failed\n", __func__, __LINE__);
 	//pr_info("base=%p length=%ld nr_pages=%ld pos=%ld\n", buf->base, buf->length,
 	//	buf->nr_pages, buf->pos);
+
+	if (flags & PERF_EF_START)
+		xuantie_ntrace_event_start(event, 0);
 
 	return 0;
 
