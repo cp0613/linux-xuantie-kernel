@@ -189,7 +189,7 @@ config GCC_SUPPORTS_DYNAMIC_FTRACE
 	depends on $(cc-option,-fpatchable-function-entry=8)
 
 config RISCV_USER_CFI
-	def_bool y
+	def_bool n
 	bool "riscv userspace control flow integrity"
 	depends on 64BIT && $(cc-option,-mabi=lp64 -march=rv64ima_zicfiss)
 	depends on RISCV_ALTERNATIVE
