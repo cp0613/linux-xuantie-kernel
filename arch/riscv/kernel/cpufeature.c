@@ -33,6 +33,7 @@
 #define MISALIGNED_COPY_SIZE ((MISALIGNED_BUFFER_SIZE / 2) - 0x80)
 
 static bool any_cpu_has_zicboz __initdata;
+static bool any_cpu_has_zicbom __initdata;
 
 unsigned long elf_hwcap __read_mostly;
 
@@ -93,6 +94,7 @@ static bool __init riscv_isa_extension_check(int id)
 			pr_err("Zicbom disabled as cbom-block-size present, but is not a power-of-2\n");
 			return false;
 		}
+		any_cpu_has_zicbom = true;
 		return true;
 	case RISCV_ISA_EXT_ZICBOZ:
 		if (!riscv_cboz_block_size) {
@@ -869,6 +871,11 @@ void __init riscv_user_isa_enable(void)
 		current->thread_info.envcfg |= ENVCFG_CBZE;
 	else if (any_cpu_has_zicboz)
 		pr_warn("Zicboz disabled as it is unavailable on some harts\n");
+
+	if (riscv_has_extension_unlikely(RISCV_ISA_EXT_ZICBOM))
+		current->thread_info.envcfg |= ENVCFG_CBCFE;
+	else if (any_cpu_has_zicbom)
+		pr_warn("Zicbom disabled as it is unavailable on some harts\n");
 }
 
 #ifdef CONFIG_RISCV_ALTERNATIVE
