@@ -25,6 +25,8 @@ struct cfi_status {
 	unsigned long shdw_stk_size; /* size of shadow stack */
 };
 
+asmlinkage void fwft_cfi_zicfiss_enable(void);
+
 unsigned long shstk_alloc_thread_stack(struct task_struct *tsk,
 							const struct kernel_clone_args *args);
 void shstk_release(struct task_struct *tsk);

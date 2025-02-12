@@ -15,6 +15,7 @@
 #include <asm/hwcap.h>
 #include <asm/image.h>
 #include <asm/xip_fixup.h>
+#include <asm/usercfi.h>
 #include "efi-header.S"
 
 __HEAD
@@ -174,6 +175,9 @@ secondary_start_sbi:
 	call relocate_enable_mmu
 #endif
 	call setup_trap_vector
+#ifdef CONFIG_RISCV_USER_CFI
+	call fwft_cfi_zicfiss_enable
+#endif
 	tail smp_callin
 #endif /* CONFIG_SMP */
 
@@ -321,7 +325,9 @@ clear_bss_done:
 	la tp, init_task
 	la sp, init_thread_union + THREAD_SIZE
 	addi sp, sp, -PT_SIZE_ON_STACK
-
+#ifdef CONFIG_RISCV_USER_CFI
+	call fwft_cfi_zicfiss_enable
+#endif
 #ifdef CONFIG_KASAN
 	call kasan_early_init
 #endif

@@ -15,9 +15,16 @@
 #include <linux/syscalls.h>
 #include <linux/prctl.h>
 #include <asm/csr.h>
+#include <asm/sbi.h>
 #include <asm/usercfi.h>
 
 #define SHSTK_ENTRY_SIZE sizeof(void *)
+
+asmlinkage void __init fwft_cfi_zicfiss_enable(void)
+{
+	sbi_ecall(SBI_EXT_FWFT, SBI_EXT_FWFT_SET, SBI_FWFT_SHADOW_STACK,
+		1, SBI_FWFT_SET_FLAG_LOCK, 0, 0, 0);
+}
 
 bool is_shstk_enabled(struct task_struct *task)
 {
