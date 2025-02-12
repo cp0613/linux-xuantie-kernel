@@ -29,6 +29,10 @@
 #include "symbol.h"
 #include "dso.h"
 
+static bool xt_script_with_insn;
+static bool xt_script_with_ranges;
+static bool xt_script_with_msg;
+
 struct xuantie_ntrace {
 	struct auxtrace auxtrace;
 	u32 auxtrace_type;
@@ -89,7 +93,7 @@ static void xuantie_ntrace__dump_event(struct perf_session *session __maybe_unus
 				    sizeof(struct xuantie_saved_config)) == 0) {
 			color_fprintf(stdout, color,
 				      ". ntrace messages are:\n");
-			xt_trace_program_trace_display(false, false, false);
+			xt_trace_program_trace_display(true, false, false);
 		}
 	}
 }
@@ -207,12 +211,12 @@ static int xuantie_ntrace_flush(struct perf_session *session __maybe_unused,
 					return 0;
 				}
 				if (xuantie_ntrace_decoder__process_full_message(
-					    session, buffer) == 0) {
+					    session, buffer, xt_script_with_ranges) == 0) {
 					color_fprintf(
 						stdout, color,
 						". ntrace full messages are:\n");
 					xt_trace_program_trace_display(
-						true, false, false);
+						xt_script_with_msg, true, xt_script_with_insn);
 				} else {
 					printf("XUANTIE NTrace: parse full message failed.\n");
 					return 0;
@@ -449,6 +453,44 @@ int xuantie_ntrace_process_auxtrace_info(union perf_event *event,
 		goto err_free_queues;
 
 	ntrace->data_queued = ntrace->queues.populated;
+
+	//sync itrace synth opts
+	if (session->itrace_synth_opts && session->itrace_synth_opts->set) {
+		switch (session->itrace_synth_opts->ntrace_print_level) {
+		case 0:
+			xt_script_with_ranges = false;
+			xt_script_with_insn = false;
+			xt_script_with_msg = false;
+			break;
+		case 1:
+			xt_script_with_ranges = false;
+			xt_script_with_insn = false;
+			xt_script_with_msg = true;
+			break;
+		case 2:
+			xt_script_with_ranges = true;
+			xt_script_with_insn = false;
+			xt_script_with_msg = false;
+			break;
+		case 3:
+			xt_script_with_ranges = true;
+			xt_script_with_insn = false;
+			xt_script_with_msg = true;
+			break;
+		case 4:
+			xt_script_with_ranges = true;
+			xt_script_with_insn = true;
+			xt_script_with_msg = false;
+			break;
+		default:
+			xt_script_with_ranges = true;
+			xt_script_with_insn = true;
+			xt_script_with_msg = true;
+			break;
+
+		}
+	}
+
 	return 0;
 
 err_free_queues:

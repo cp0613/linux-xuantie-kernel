@@ -164,6 +164,7 @@ struct itrace_synth_opts {
 	unsigned int		log_minus_flags;
 	unsigned int		quick;
 	unsigned int		log_on_error_size;
+	unsigned long		ntrace_print_level;
 };
 
 /**
@@ -679,6 +680,7 @@ bool auxtrace__evsel_is_auxtrace(struct perf_session *session,
 "				q:			quicker (less detailed) decoding\n" \
 "				A:			approximate IPC\n" \
 "				Z:			prefer to ignore timestamps (so-called \"timeless\" decoding)\n" \
+"				nNUMBER:	specify the decoding details level(0~5)\n" \
 "				PERIOD[ns|us|ms|i|t]:   specify period to sample stream\n" \
 "				concatenate multiple options. Default is iybxwpe or cewp\n"
 

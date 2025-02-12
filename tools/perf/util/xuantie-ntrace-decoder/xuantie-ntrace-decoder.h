@@ -17,5 +17,5 @@ struct xuantie_saved_config {
 int32_t xuantie_ntrace_decoder__process_metedata(struct xuantie_saved_config *saved_config,
 		unsigned char *buf, size_t len);
 int32_t xuantie_ntrace_decoder__process_full_message(struct perf_session *session,
-		struct auxtrace_buffer *buffer);
-int32_t xt_trace_program_trace_display(bool with_addr, bool with_symbol, bool with_insn);
+		struct auxtrace_buffer *buffer, bool analysis_ranges);
+int32_t xt_trace_program_trace_display(bool with_msg, bool with_addr, bool with_insn);

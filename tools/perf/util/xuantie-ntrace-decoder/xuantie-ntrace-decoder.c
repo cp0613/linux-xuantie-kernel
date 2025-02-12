@@ -87,10 +87,6 @@ static uint64_t get_an_insn(struct perf_session *session,
 	//struct symbol *sym = NULL;
 
 	thread = machine__findnew_thread(&session->machines.host, buffer->pid, buffer->tid);
-	if (cpumode == PERF_RECORD_MISC_KERNEL) {
-		//addr += 0xffffff0000000000; // PA40
-		addr = sign_extend64(addr, 39); // PA40
-	}
 
 	cpumode = riscv_get_cpu_mode(addr);
 
@@ -147,6 +143,7 @@ static uint64_t get_an_insn(struct perf_session *session,
 	}
 	//printf("al.level=%c al.addr=0x%lx addr=0x%lx len=%d insn=%lx\n",
 	//	al.level, al.addr, addr, *len, *(uint64_t *)buf);
+	addr_location__exit(&al);
 	return *(uint64_t *)buf;
 
 error_end:
@@ -707,10 +704,6 @@ static void xt_trace_get_dso_and_symbol_for_node(
 
 	addr = node->start_addr;
 	cpumode = riscv_get_cpu_mode(addr);
-	if (cpumode == PERF_RECORD_MISC_KERNEL) {
-		//addr += 0xffffff0000000000; // PA40
-		addr = sign_extend64(addr, 39); // PA40
-	}
 
 	addr_location__init(&al);
 	if (!thread__find_map(thread, cpumode, addr, &al))
@@ -722,25 +715,21 @@ static void xt_trace_get_dso_and_symbol_for_node(
 	//	dso__data_status_seen(dso, DSO_DATA_STATUS_SEEN_ITRACE))
 	//	goto next;
 	sym = dso__find_symbol(dso, al.addr);
-	if (sym) {
+	if (sym && sym->name[0] != '\0') {
 		strcpy(node->saddr_sym, sym->name);
 		goto next;
 	}
 	map__load(al.map);
 	sym = dso__find_symbol(dso, al.addr);
-	if (sym)
+	if (sym && sym->name[0] != '\0')
 		strcpy(node->saddr_sym, sym->name);
 
 next:
-	if (dso)
+	if (dso && dso->long_name && dso->long_name[0] != '\0')
 		strcpy(node->saddr_dso, dso->name);
 	addr_location__exit(&al);
 	addr = node->full_addr;
 	cpumode = riscv_get_cpu_mode(addr);
-	if (cpumode == PERF_RECORD_MISC_KERNEL) {
-		//addr += 0xffffff0000000000; // PA40
-		addr = sign_extend64(addr, 39); // PA40
-	}
 
 	addr_location__init(&al);
 	if (!thread__find_map(thread, cpumode, addr, &al))
@@ -753,10 +742,10 @@ next:
 	//	goto end;
 	map__load(al.map);
 	sym = dso__find_symbol(dso, al.addr);
-	if (sym)
+	if (sym && sym->name[0] != '\0')
 		strcpy(node->faddr_sym, sym->name);
 end:
-	if (dso)
+	if (dso && dso->long_name && dso->long_name[0] != '\0')
 		strcpy(node->faddr_dso, dso->name);
 	addr_location__exit(&al);
 }
@@ -799,16 +788,9 @@ xt_trace_get_start_and_full_addr(struct xt_trace_program_flow_node *node,
 		node->full_addr =
 			node->msg.sub_value.indirectbranchhistsync.f_addr * 2;
 		break;
-	case TCODE_RESOURCEFULL: {
-		struct xt_trace_address_range *range = node->addr_range;
-
-		if (!node->addr_range)
-			return -1;
-
-		while (range->next)
-			range = range->next;
-		node->full_addr = range->end_addr;
-	} break;
+	case TCODE_RESOURCEFULL:
+		printf("Error: should not get full addr for TCODE_RESOURCEFULL.\n");
+		return -1;
 	case TCODE_PROGTRACECORRELATION: {
 		struct xt_trace_address_range *range = node->addr_range;
 
@@ -824,6 +806,7 @@ xt_trace_get_start_and_full_addr(struct xt_trace_program_flow_node *node,
 		break;
 	}
 
+	node->full_addr = sign_extend64(node->full_addr, 39);
 	if (!unknown_tcode)
 		xt_trace_get_dso_and_symbol_for_node(node, session, buffer);
 
@@ -1186,8 +1169,8 @@ xt_trace_output_ntrace_message(struct xt_riscv_nexus_trace_message *msg,
 	return 0;
 }
 
-int32_t xuantie_ntrace_decoder__process_full_message(
-	struct perf_session *session, struct auxtrace_buffer *buffer)
+int32_t xuantie_ntrace_decoder__process_full_message(struct perf_session *session,
+	struct auxtrace_buffer *buffer, bool analyze_ranges)
 {
 	int ret = 0;
 	bool error_message_happened = true;
@@ -1203,8 +1186,10 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 				//ignore the i-cnt and hist of the first msg
 				node->start_addr = node->full_addr;
 				pre_full_addr = node->full_addr;
-				strcpy(node->saddr_dso, node->faddr_dso);
-				strcpy(node->saddr_sym, node->faddr_sym);
+				if (node->faddr_dso[0] != '\0')
+					strcpy(node->saddr_dso, node->faddr_dso);
+				if (node->faddr_sym[0] != '\0')
+					strcpy(node->saddr_sym, node->faddr_sym);
 
 				//go next
 				node = node->next;
@@ -1231,10 +1216,11 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 			break;
 		case TCODE_INDIRECTBRANCH:
 			node->start_addr = pre_full_addr;
-			ret = xt_trace_analyze_i_cnt_vs_hist(
-				session, buffer,
-				node->msg.sub_value.indirectbranch.i_cnt,
-				pre_full_addr, 0, &node->addr_range);
+			if (analyze_ranges)
+				ret = xt_trace_analyze_i_cnt_vs_hist(
+					session, buffer,
+					node->msg.sub_value.indirectbranch.i_cnt,
+					pre_full_addr, 0, &node->addr_range);
 			resource_full_clear();
 			if (ret < 0) {
 				node->invalid = 1;
@@ -1261,10 +1247,11 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 			break;
 		case TCODE_PROGTRACESYNC:
 			node->start_addr = pre_full_addr;
-			ret = xt_trace_analyze_i_cnt_vs_hist(
-				session, buffer,
-				node->msg.sub_value.progtracesync.i_cnt,
-				pre_full_addr, 0, &node->addr_range);
+			if (analyze_ranges)
+				ret = xt_trace_analyze_i_cnt_vs_hist(
+					session, buffer,
+					node->msg.sub_value.progtracesync.i_cnt,
+					pre_full_addr, 0, &node->addr_range);
 			resource_full_clear();
 			if (ret < 0) {
 				node->invalid = 1;
@@ -1282,10 +1269,11 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 			break;
 		case TCODE_DIRECTBRANCHSYNC:
 			node->start_addr = pre_full_addr;
-			ret = xt_trace_analyze_i_cnt_vs_hist(
-				session, buffer,
-				node->msg.sub_value.directbranchsync.i_cnt,
-				pre_full_addr, 0, &node->addr_range);
+			if (analyze_ranges)
+				ret = xt_trace_analyze_i_cnt_vs_hist(
+					session, buffer,
+					node->msg.sub_value.directbranchsync.i_cnt,
+					pre_full_addr, 0, &node->addr_range);
 			resource_full_clear();
 			if (ret < 0) {
 				node->invalid = 1;
@@ -1303,10 +1291,11 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 			break;
 		case TCODE_INDIRECTBRANCHSYNC:
 			node->start_addr = pre_full_addr;
-			ret = xt_trace_analyze_i_cnt_vs_hist(
-				session, buffer,
-				node->msg.sub_value.indirectbranchsync.i_cnt,
-				pre_full_addr, 0, &node->addr_range);
+			if (analyze_ranges)
+				ret = xt_trace_analyze_i_cnt_vs_hist(
+					session, buffer,
+					node->msg.sub_value.indirectbranchsync.i_cnt,
+					pre_full_addr, 0, &node->addr_range);
 			resource_full_clear();
 			if (ret < 0) {
 				node->invalid = 1;
@@ -1339,12 +1328,13 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 			break;
 		case TCODE_INDIRECTBRANCHHIST:
 			node->start_addr = pre_full_addr;
-			ret = xt_trace_analyze_i_cnt_vs_hist(
-				session, buffer,
-				node->msg.sub_value.indirectbranchhist.i_cnt,
-				pre_full_addr,
-				node->msg.sub_value.indirectbranchhist.hist,
-				&node->addr_range);
+			if (analyze_ranges)
+				ret = xt_trace_analyze_i_cnt_vs_hist(
+					session, buffer,
+					node->msg.sub_value.indirectbranchhist.i_cnt,
+					pre_full_addr,
+					node->msg.sub_value.indirectbranchhist.hist,
+					&node->addr_range);
 			resource_full_clear();
 			if (ret < 0) {
 				node->invalid = 1;
@@ -1362,12 +1352,13 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 			break;
 		case TCODE_INDIRECTBRANCHHISTSYNC:
 			node->start_addr = pre_full_addr;
-			ret = xt_trace_analyze_i_cnt_vs_hist(
-				session, buffer,
-				node->msg.sub_value.indirectbranchhistsync.i_cnt,
-				pre_full_addr,
-				node->msg.sub_value.indirectbranchhistsync.hist,
-				&node->addr_range);
+			if (analyze_ranges)
+				ret = xt_trace_analyze_i_cnt_vs_hist(
+					session, buffer,
+					node->msg.sub_value.indirectbranchhistsync.i_cnt,
+					pre_full_addr,
+					node->msg.sub_value.indirectbranchhistsync.hist,
+					&node->addr_range);
 			resource_full_clear();
 			if (ret < 0) {
 				node->invalid = 1;
@@ -1406,8 +1397,9 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 				break;
 			}
 
+			error_message_happened = true;
 			// update pre_full_addr
-			pre_full_addr = node->full_addr;
+			//pre_full_addr = node->full_addr;
 			break;
 		default:
 			// msg
@@ -1423,8 +1415,124 @@ int32_t xuantie_ntrace_decoder__process_full_message(
 	return 0;
 }
 
+#ifdef HAVE_LIBBFD_SUPPORT
+#define PACKAGE "perf"
+#include <bfd.h>
+#include <dis-asm.h>
+#include <tools/dis-asm-compat.h>
+
+static int
+xt_trace_disassemble_and_display(char *file_name, struct xt_trace_address_range *range_p)
+{
+	struct disassemble_info info;
+	bfd *bfdf;
+	disassembler_ftype disassemble;
+	int count = 0;
+	asection *sect = NULL;
+	bfd_byte *data = NULL;
+	uint64_t addr = 0;
+
+	if (file_name == NULL)
+		return 0;
+
+	bfdf = bfd_openr(file_name, NULL);
+	if (bfdf == NULL) {
+		//printf ("Can't open file %s\n", dso->name);
+		return 0;
+	}
+	if (!bfd_check_format(bfdf, bfd_object))
+		goto end;
+
+	init_disassemble_info_compat(&info, stdout,
+				     (fprintf_ftype) fprintf,
+				     fprintf_styled);
+	info.arch = bfd_get_arch(bfdf);
+	info.mach = bfd_get_mach(bfdf);
+
+	while (range_p) {
+		//printf range start and end first
+		printf("      {0x%lx, 0x%lx - 1}\n", range_p->start_addr, range_p->end_addr);
+
+		//disassemble and print insns
+		//reuse sect and data
+		addr = range_p->start_addr;
+		if (sect && data) {
+			if (bfd_section_vma(sect) <= addr
+			    && addr < (bfd_section_vma(sect) + bfd_section_size(sect))) {
+				while (1) {
+					if (addr > 0xffffffff)
+						printf("      %16lx:    ", addr);
+					else
+						printf("      %8lx:    ", addr);
+					count = disassemble(addr, &info);
+					if (count < 0)
+						goto end;
+					printf("\n");
+					addr += count;
+
+					if (addr >= range_p->end_addr)
+						break;
+				}
+
+				range_p = range_p->next;
+				continue;
+			}
+			free(data);
+			data = NULL;
+		}
+
+
+		//find sect and disassmbler
+		sect = bfdf->sections;
+		for (sect = bfdf->sections; sect != NULL; sect = sect->next)
+			if (bfd_section_vma(sect) <= addr
+			    && addr < (bfd_section_vma(sect) + bfd_section_size(sect)))
+				break;
+		if (sect == NULL)
+			goto end;
+		if (!bfd_malloc_and_get_section(bfdf, sect, &data))
+			goto end;
+		info.buffer = data;
+		info.buffer_length = bfd_section_size(sect);
+		info.buffer_vma = bfd_section_vma(sect);
+
+		disassemble_init_for_target(&info);
+		disassemble = disassembler(info.arch,
+					   bfd_big_endian(bfdf),
+					   info.mach,
+					   bfdf);
+		if (disassemble == NULL)
+			goto end;
+
+		while (1) {
+			if (addr > 0xffffffff)
+				printf("      %16lx:    ", addr);
+			else
+				printf("      %8lx:    ", addr);
+			count = disassemble(addr, &info);
+			if (count < 0)
+				goto end;
+			printf("\n");
+			addr += count;
+
+			if (addr >= range_p->end_addr)
+				break;
+		}
+
+		//next range
+		range_p = range_p->next;
+	}
+end:
+	if (data)
+		free(data);
+	bfd_close(bfdf);
+
+	return 0;
+}
+#endif
+
 #define STR_LEN_MAX (1024 * 8)
-int32_t xt_trace_program_trace_display(bool with_addr, bool with_symbol,
+int32_t xt_trace_program_trace_display(bool with_msg, bool with_addr,
 						bool with_insn)
 {
 	char str[STR_LEN_MAX] = { '\0' };
@@ -1433,10 +1541,13 @@ int32_t xt_trace_program_trace_display(bool with_addr, bool with_symbol,
 	while (node_p) {
 		// printf n-trace message contents
 		memset(str, 0, STR_LEN_MAX);
-		if (xt_trace_output_ntrace_message(&node_p->msg, str)) {
-			printf("Can not analysis ntrace message.\n");
-			return -1;
-		}
+
+		if (with_msg || node_p->msg.tcode == TCODE_OWNERSHIP
+			|| node_p->msg.tcode == TCODE_PROGTRACECORRELATION)
+			if (xt_trace_output_ntrace_message(&node_p->msg, str)) {
+				printf("Can not analysis ntrace message.\n");
+				return -1;
+			}
 
 		if (strlen(str) >= STR_LEN_MAX) {
 			printf("str with length 0x%lx is bigger than STR_LEN_MAX 0x%x\n",
@@ -1445,7 +1556,7 @@ int32_t xt_trace_program_trace_display(bool with_addr, bool with_symbol,
 		}
 
 		printf("%s", str);
-		if (with_addr || with_symbol || with_insn) {
+		if (with_addr || with_insn) {
 			switch (node_p->msg.tcode) {
 			case TCODE_OWNERSHIP:
 			case TCODE_ERROR:
@@ -1478,9 +1589,23 @@ int32_t xt_trace_program_trace_display(bool with_addr, bool with_symbol,
 						node_p->addr_range;
 					printf("    Include pc ranges:\n");
 					while (range_p) {
+#ifdef HAVE_LIBBFD_SUPPORT
+						if (with_insn &&
+							(range_p->end_addr > range_p->start_addr)) {
+							xt_trace_disassemble_and_display(
+								node_p->saddr_dso, range_p);
+							range_p = NULL;
+						} else {
+							printf("    {0x%lx, 0x%lx - 1}\n",
+								range_p->start_addr,
+								range_p->end_addr);
+							range_p = range_p->next;
+						}
+#else
 						printf("    {0x%lx, 0x%lx - 1}\n",
 							range_p->start_addr, range_p->end_addr);
 						range_p = range_p->next;
+#endif
 					}
 				}
 				break;
