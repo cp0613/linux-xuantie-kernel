@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/riscv/ntrace/xuantie,ntrace,sink.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: RISC-V XUANTIE NTrace properties
+
+description: |
+  xuantie_ntrace component description
+
+maintainers:
+  - lijsh <jiangshuai.ljs@alibaba-inc.com>
+  - Chen Pei <cp0613@linux.alibaba.com>
+
+properties:
+  compatible:
+    items:
+      - const: xuantie_ntrace,sink-controller
+  reg:
+    maxItems: 1
+    description: A memory region containing registers for sink
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+additionalProperties: true
+
+...
