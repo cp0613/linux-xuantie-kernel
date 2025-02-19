@@ -124,15 +124,16 @@ static void build_filter_one(struct xt_trace_encoder_filter_config_info *filter_
 
 		if (xuantie_ntrace_pmu.filter_attr.start_addr == 0
 		&& xuantie_ntrace_pmu.filter_attr.stop_addr != 0) {
+			// equal to comparator_enable = true
 			prim_func = COMPFUNCTION_ALWAYS_TRUE;
-			second_func = COMPFUNCTION_LESS_OR_EQUAL;
+			second_func = COMPFUNCTION_EQUAL;
 		} else if (xuantie_ntrace_pmu.filter_attr.start_addr != 0
 		&& xuantie_ntrace_pmu.filter_attr.stop_addr == 0) {
-			prim_func = COMPFUNCTION_GREATER_OR_EQUAL;
-			second_func = COMPFUNCTION_ALWAYS_TRUE;
+			prim_func = COMPFUNCTION_EQUAL;
+			second_func = COMPFUNCTION_LESS_THAN;
 		} else {
-			prim_func = COMPFUNCTION_GREATER_OR_EQUAL;
-			second_func = COMPFUNCTION_LESS_OR_EQUAL;
+			prim_func = COMPFUNCTION_EQUAL;
+			second_func = COMPFUNCTION_EQUAL;
 		}
 	} else
 		comparator_enable = false;
@@ -168,7 +169,8 @@ static void build_filter_one(struct xt_trace_encoder_filter_config_info *filter_
 	filter_config->comp1_secondary_input = COMPTYPE_IADDR;     // s_iaddr
 	filter_config->comp1_secondary_function = second_func;
 	filter_config->comp1_secondary_notify = false;
-	filter_config->comp1_match_mode = COMPMATCHMODE_BOTH_TRUE; // both primary&secondary true
+	// start with primary true, end with secondary true
+	filter_config->comp1_match_mode = COMPMATCHMODE_PRIMARY_TRUE_UNTIL_SECOND_TRUE;
 	filter_config->comp1_primary_match_low_value = xuantie_ntrace_pmu.filter_attr.start_addr;
 	filter_config->comp1_primary_match_high_value = 0x0;
 	filter_config->comp1_secondary_match_low_value = xuantie_ntrace_pmu.filter_attr.stop_addr;
