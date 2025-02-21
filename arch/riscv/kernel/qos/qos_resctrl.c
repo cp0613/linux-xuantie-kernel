@@ -1148,7 +1148,7 @@ static int qos_resctrl_setup_resources(void)
 	}
 
 	if (!found_controllers) {
-		pr_err("%s(): qos_resctrl_discover_controller failed (no found_controllers)", __func__);
+		pr_debug("%s(): qos_resctrl_discover_controller failed (no found_controllers)", __func__);
 		return -ENODEV;
 	}
 
@@ -1212,7 +1212,7 @@ int qos_resctrl_setup(void)
 
 	err = qos_resctrl_setup_resources();
 	if (err) {
-		pr_err("%s(): failed with error %d\n", __func__, err);
+		pr_debug("%s(): failed with error %d\n", __func__, err);
 		return err;
 	}
 
