@@ -92,7 +92,7 @@ static void xuantie_ntrace__dump_event(struct perf_session *session __maybe_unus
 			    buffer->size -
 				    sizeof(struct xuantie_saved_config)) == 0) {
 			color_fprintf(stdout, color,
-				      ". ntrace messages are:\n");
+			    ". ntrace messages are(There is a scheduling event happening here.):\n");
 			xt_trace_program_trace_display(true, false, false);
 		}
 	}
@@ -178,24 +178,24 @@ static int xuantie_ntrace_flush(struct perf_session *session __maybe_unused,
 			struct xuantie_saved_config *saved_config;
 			const char *color = PERF_COLOR_BLUE;
 
-			printf("size 0x%lx, offset 0x%lx, data_offset 0x%lx\n",
-			       buffer->size, buffer->offset,
-			       buffer->data_offset);
+			// printf("size 0x%lx, offset 0x%lx, data_offset 0x%lx\n",
+			//        buffer->size, buffer->offset,
+			//        buffer->data_offset);
 
 			saved_config =
 				(struct xuantie_saved_config *)buffer->data;
-			color_fprintf(stdout, color,
-				      ". ... xuantie saved configs are:\n");
-			printf("saved_config->_size is 0x%x\n",
-			       saved_config->_size);
-			printf("saved_config->inst_mode is 0x%x\n",
-			       saved_config->inst_mode);
-			printf("saved_config->src_bits is 0x%x\n",
-			       saved_config->src_bits);
-			printf("saved_config->timestamp_bits is 0x%x\n",
-			       saved_config->timestamp_bits);
-			printf("saved_config->trace_ram_wrap is 0x%x\n",
-			       saved_config->trace_ram_wrap);
+			// color_fprintf(stdout, color,
+			//        ". ... xuantie saved configs are:\n");
+			// printf("saved_config->_size is 0x%x\n",
+			//        saved_config->_size);
+			// printf("saved_config->inst_mode is 0x%x\n",
+			//        saved_config->inst_mode);
+			// printf("saved_config->src_bits is 0x%x\n",
+			//        saved_config->src_bits);
+			// printf("saved_config->timestamp_bits is 0x%x\n",
+			//        saved_config->timestamp_bits);
+			// printf("saved_config->trace_ram_wrap is 0x%x\n",
+			//        saved_config->trace_ram_wrap);
 
 			if (buffer->size >
 			    sizeof(struct xuantie_saved_config)) {

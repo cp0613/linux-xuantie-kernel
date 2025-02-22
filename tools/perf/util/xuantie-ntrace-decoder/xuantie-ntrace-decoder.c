@@ -948,31 +948,31 @@ xt_trace_output_ntrace_message(struct xt_riscv_nexus_trace_message *msg,
 				     "Trace Enable",
 				     "Trace Event",
 				     "Restart from FIFO",
-				     "Reserved",
+				     "Reserved8",
 				     "Exit from Powerdown",
-				     "Reserved",
-				     "Reserved",
-				     "Reserved",
-				     "Reserved",
-				     "Reserved",
-				     "Reserved" };
+				     "Reserved10",
+				     "Reserved11",
+				     "Reserved12",
+				     "Reserved13",
+				     "Reserved14",
+				     "Reserved15" };
 	const char *evcode_str[16] = {
 		"Entry into Debug Mode",
 		"Entry into Low-power Mode",
-		"Reserved",
-		"Reserved",
-		"Program Trace Disabled (hart is still running)",
-		"Reserved",
-		"Reserved",
-		"Reserved",
-		"Reserved",
-		"Reserved",
-		"Reserved",
-		"Reserved",
-		"Reserved",
-		"Reserved",
-		"Reserved",
-		"Reserved"
+		"Reserved2",
+		"Reserved3",
+		"Program Trace Disabled",
+		"Reserved5",
+		"Reserved6",
+		"Reserved7",
+		"Reserved8",
+		"Reserved9",
+		"Reserved10",
+		"Reserved11",
+		"Reserved12",
+		"Reserved13",
+		"Reserved14",
+		"Reserved15"
 	};
 
 	buf_p += sprintf(buf_p, ".  ");
@@ -1164,6 +1164,174 @@ xt_trace_output_ntrace_message(struct xt_riscv_nexus_trace_message *msg,
 	if (msg->has_timestamp)
 		buf_p += sprintf(buf_p, ", timestamp=0x%lx",
 					msg->timestamp);
+	buf_p += sprintf(buf_p, ".\n");
+
+	return 0;
+}
+
+static int32_t
+xt_trace_output_specified_message(struct xt_riscv_nexus_trace_message *msg, char *buf)
+{
+	char *buf_p = buf;
+	const char *priv_mode_str[4] = {
+		"U-mode", "S-mode", "Unknown-mode", "M-mode"};
+	const char *sync_str[16] = {
+		"External Trace Trigger",
+		"Exit From Reset",
+		"Periodic Synchronization",
+		"Exit from Debug Mode",
+		"Sequential Instruction Counter",
+		"Trace Enable",
+		"Trace Event",
+		"Restart from FIFO",
+		"Reserved8",
+		"Exit from Powerdown",
+		"Reserved10",
+		"Reserved11",
+		"Reserved12",
+		"Reserved13",
+		"Reserved14",
+		"Reserved15"};
+	const char *evcode_str[16] = {
+		"Entry into Debug Mode",
+		"Entry into Low-power Mode",
+		"Reserved2",
+		"Reserved3",
+		"Program Trace Disabled",
+		"Reserved5",
+		"Reserved6",
+		"Reserved7",
+		"Reserved8",
+		"Reserved9",
+		"Reserved10",
+		"Reserved11",
+		"Reserved12",
+		"Reserved13",
+		"Reserved14",
+		"Reserved15"};
+	buf_p += sprintf(buf_p, ".  ");
+
+	switch (msg->tcode) {
+		case TCODE_OWNERSHIP: {
+			buf_p += sprintf(buf_p, "Messages below are in");
+			buf_p += sprintf(buf_p, " %s%s", msg->sub_value.ownership.is_virtual ? "V" : "",
+				priv_mode_str[msg->sub_value.ownership.privilege & 0x3]);
+		if (msg->sub_value.ownership.has_context)
+			buf_p += sprintf(buf_p, " with %sContext=0x%lx", msg->sub_value.ownership.is_scontext ? "S" : "H",
+			msg->sub_value.ownership.context);
+		} break;
+		//case TCODE_DIRECTBRANCH: {
+		//	buf_p += sprintf(buf_p, "TCODE=3(DIRECTBRANCH)");
+		//    buf_p += sprintf(buf_p, ", i-cnt=0x%lx", msg->sub_value.directbranch.i_cnt);
+		//} break;
+		//case TCODE_INDIRECTBRANCH: {
+		//    buf_p += sprintf(buf_p, "TCODE=4(INDIRECTBRANCH)");
+		//    buf_p += sprintf(buf_p, ", b_type=%d(%s), i-cnt=0x%lx, u-addr=0x%lx", msg->sub_value.indirectbranch.b_type,
+		//                     b_type_str[msg->sub_value.indirectbranch.b_type & 0x3], msg->sub_value.indirectbranch.i_cnt,
+		//                     msg->sub_value.indirectbranch.u_addr);
+		//} break;
+		case TCODE_ERROR: {
+			buf_p += sprintf(buf_p, "Error happened:");
+			buf_p += sprintf(buf_p, "error type=%s, error code=0x%lx",
+				msg->sub_value.error.etype == 0 ? "Standard" : "Reserved", msg->sub_value.error.ecode);
+			if (msg->sub_value.error.etype == 0 && msg->sub_value.error.ecode) {
+				buf_p += sprintf(buf_p, "(");
+				if (msg->sub_value.error.ecode & (1 << 0))
+					buf_p += sprintf(buf_p, "[0]:Reserved");
+				if (msg->sub_value.error.ecode & (1 << 1))
+					buf_p += sprintf(buf_p, ", [1]:Reserved");
+				if (msg->sub_value.error.ecode & (1 << 2))
+					buf_p += sprintf(buf_p, ", [2]:Program Trace Message(s) lost");
+				if (msg->sub_value.error.ecode & (1 << 3))
+					buf_p += sprintf(buf_p, ", [3]:Ownership Trace Message(s) lost");
+				if (msg->sub_value.error.ecode & (1 << 4))
+					buf_p += sprintf(buf_p, ", [4]:Reserved");
+				if (msg->sub_value.error.ecode & (1 << 5))
+					buf_p += sprintf(buf_p, ", [5]:Reserved");
+				if (msg->sub_value.error.ecode & (1 << 6))
+					buf_p += sprintf(buf_p, ", [6]:Reserved");
+				if (msg->sub_value.error.ecode & (1 << 7))
+					buf_p += sprintf(buf_p, ", [7]:Vendor Defined Message(s) lost");
+				buf_p += sprintf(buf_p, "),");
+			} else if (msg->sub_value.error.etype == 0)
+				buf_p += sprintf(buf_p, "(Exact reason unknown/not provided)");
+		} break;
+		case TCODE_PROGTRACESYNC: {
+			buf_p += sprintf(buf_p, "Synchronization Reason: %s", sync_str[msg->sub_value.progtracesync.sync & 0xf]);
+		} break;
+		//case TCODE_DIRECTBRANCHSYNC: {
+		//    buf_p += sprintf(buf_p, "TCODE=11(DIRECTBRANCHSYNC)");
+		//    buf_p += sprintf(buf_p, ", sync=%d(%s), i-cnt=0x%lx, f_addr=0x%lx", msg->sub_value.directbranchsync.sync,
+		//                     sync_str[msg->sub_value.directbranchsync.sync & 0xf], msg->sub_value.directbranchsync.i_cnt,
+		//                     msg->sub_value.directbranchsync.f_addr);
+		//} break;
+		//case TCODE_INDIRECTBRANCHSYNC: {
+		//    buf_p += sprintf(buf_p, "TCODE=12(INDIRECTBRANCHSYNC)");
+		//    buf_p += sprintf(buf_p, ", sync=%d(%s), b-type=%d(%s), i-cnt=0x%lx, f_addr=0x%lx",
+		//                     msg->sub_value.indirectbranchsync.sync, sync_str[msg->sub_value.indirectbranchsync.sync & 0xf],
+		//                     msg->sub_value.indirectbranchsync.b_type,
+		//                     b_type_str[msg->sub_value.indirectbranchsync.b_type & 0x3],
+		//                     msg->sub_value.indirectbranchsync.i_cnt, msg->sub_value.indirectbranchsync.f_addr);
+		//} break;
+		//case TCODE_RESOURCEFULL: {
+		//    buf_p += sprintf(buf_p, "TCODE=27(RESOURCEFULL)");
+		//    buf_p += sprintf(buf_p, ", rcode=%d", msg->sub_value.resourcefull.rcode);
+		//    if (msg->sub_value.resourcefull.rcode == 0)
+		//        buf_p += sprintf(buf_p, ", rdata0=0x%lx(i-cnt)", msg->sub_value.resourcefull.rdata0);
+		//    else if (msg->sub_value.resourcefull.rcode == 1)
+		//        buf_p += sprintf(buf_p, ", rdata0=0x%lx(hist)", msg->sub_value.resourcefull.rdata0);
+		//    else if (msg->sub_value.resourcefull.rcode == 2)
+		//        buf_p += sprintf(buf_p, ", rdata0=0x%lx(hist), rdata1=0x%lx(repeated count)", msg->sub_value.resourcefull.rdata0,
+		//                         msg->sub_value.resourcefull.rdata1);
+		//    else
+		//        buf_p += sprintf(buf_p, ", rdata0=0x%lx(unknown), rdata1=0x%lx(unknown)",
+		//                         msg->sub_value.resourcefull.rdata0, msg->sub_value.resourcefull.rdata1);
+		//} break;
+		//case TCODE_INDIRECTBRANCHHIST: {
+		//    buf_p += sprintf(buf_p, "TCODE=28(INDIRECTBRANCHHIST)");
+		//    buf_p +=
+		//        sprintf(buf_p, ", b-type=%d(%s), i-cnt=0x%lx, u_addr=0x%lx, hist=0x%lx",
+		//                msg->sub_value.indirectbranchhist.b_type,
+		//                b_type_str[msg->sub_value.indirectbranchhist.b_type & 0x3], msg->sub_value.indirectbranchhist.i_cnt,
+		//                msg->sub_value.indirectbranchhist.u_addr, msg->sub_value.indirectbranchhist.hist);
+		//} break;
+		//case TCODE_INDIRECTBRANCHHISTSYNC: {
+		//    buf_p += sprintf(buf_p, "TCODE=29(INDIRECTBRANCHHISTSYNC)");
+		//    buf_p += sprintf(
+		//        buf_p, ", sync=%d(%s), b-type=%d(%s), i-cnt=0x%lx, f_addr=0x%lx, hist=0x%lx",
+		//        msg->sub_value.indirectbranchhistsync.sync, sync_str[msg->sub_value.indirectbranchhistsync.sync & 0xf],
+		//        msg->sub_value.indirectbranchhistsync.b_type,
+		//        b_type_str[msg->sub_value.indirectbranchhistsync.b_type & 0x3], msg->sub_value.indirectbranchhistsync.i_cnt,
+		//        msg->sub_value.indirectbranchhistsync.f_addr, msg->sub_value.indirectbranchhistsync.hist);
+		//} break;
+		//case TCODE_REPEATBRANCH: {
+		//    buf_p += sprintf(buf_p, "TCODE=30(REPEATBRANCH)");
+		//    buf_p += sprintf(buf_p, ", b-cnt=0x%lx", msg->sub_value.repeatbranch.b_cnt);
+		//} break;
+		case TCODE_PROGTRACECORRELATION: {
+			buf_p += sprintf(buf_p, "Correction Event: %s",
+				evcode_str[msg->sub_value.progtracecorrelation.evcode & 0xf]);
+			//if (msg->sub_value.progtracecorrelation.cdf == 0) {
+			//    buf_p += sprintf(buf_p, ", cdf=0(cdata only has i-cnt)");
+			//    buf_p += sprintf(buf_p, ", i-cnt=0x%lx", msg->sub_value.progtracecorrelation.i_cnt);
+			//}
+			//else if (msg->sub_value.progtracecorrelation.cdf == 1) {
+			//    buf_p += sprintf(buf_p, ", cdf=1(cdata has i-cnt and hist)");
+			//    buf_p += sprintf(buf_p, ", i-cnt=0x%lx, hist=0x%lx", msg->sub_value.progtracecorrelation.i_cnt,
+			//                     msg->sub_value.progtracecorrelation.hist);
+			//}
+			//else
+			//    buf_p += sprintf(buf_p, ", cdf=%d(unknown)", msg->sub_value.progtracecorrelation.cdf);
+		} break;
+		default: {
+			buf_p += sprintf(buf_p, "Unknown TCODE %d", msg->tcode);
+		} break;
+	}
+
+	if (msg->has_src)
+		buf_p += sprintf(buf_p, ", CPU Num=%d", msg->src);
+	if (msg->has_timestamp)
+		buf_p += sprintf(buf_p, ", Timestamp=0x%lx", msg->timestamp);
 	buf_p += sprintf(buf_p, ".\n");
 
 	return 0;
@@ -1542,12 +1710,20 @@ int32_t xt_trace_program_trace_display(bool with_msg, bool with_addr,
 		// printf n-trace message contents
 		memset(str, 0, STR_LEN_MAX);
 
-		if (with_msg || node_p->msg.tcode == TCODE_OWNERSHIP
-			|| node_p->msg.tcode == TCODE_PROGTRACECORRELATION)
+		if (with_msg) {
 			if (xt_trace_output_ntrace_message(&node_p->msg, str)) {
 				printf("Can not analysis ntrace message.\n");
 				return -1;
 			}
+		} else if (node_p->msg.tcode == TCODE_OWNERSHIP
+			 || node_p->msg.tcode == TCODE_ERROR
+			 || node_p->msg.tcode == TCODE_PROGTRACESYNC
+			 || node_p->msg.tcode == TCODE_PROGTRACECORRELATION) {
+			if (xt_trace_output_specified_message(&node_p->msg, str)) {
+				printf("Can not analysis ntrace message mark2.\n");
+				return -1;
+			}
+		}
 
 		if (strlen(str) >= STR_LEN_MAX) {
 			printf("str with length 0x%lx is bigger than STR_LEN_MAX 0x%x\n",
