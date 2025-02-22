@@ -738,6 +738,9 @@ static __init int xuantie_ntrace_init(void)
 	struct xuantie_ntrace_component *component;
 	int ret = 0;
 
+	if (get_list_count(&xuantie_ntrace_controllers) == 0)
+		return -ENXIO;
+
 	list_for_each_entry(component, &xuantie_ntrace_controllers, list) {
 		pr_info("type=%s in_num=%d out_num=%d\n",
 			xuantie_ntrace_type2str(component->type),
