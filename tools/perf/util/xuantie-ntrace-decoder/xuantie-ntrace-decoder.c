@@ -73,6 +73,8 @@ static u8 riscv_get_cpu_mode(u64 vaddr)
 	//FIXME: other mode ???
 }
 
+#define FAILED_TO_GET_AN_INSN 0xabcddeadbeef1234
+
 static uint64_t get_an_insn(struct perf_session *session,
 			    struct auxtrace_buffer *buffer, uint64_t addr,
 			    uint32_t *len)
@@ -149,7 +151,7 @@ static uint64_t get_an_insn(struct perf_session *session,
 error_end:
 	//printf("can't read insn for addr %#" PRIx64 "\n", addr);
 	addr_location__exit(&al);
-	return 1;
+	return FAILED_TO_GET_AN_INSN;
 }
 
 static bool xt_trace_is_condition_branch_insn(uint32_t insn_length,
@@ -376,7 +378,7 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 	int32_t ret = -1;
 	uint64_t insn_addr = start_addr;
 	uint32_t insn_len = 0;
-	uint32_t insn_value = 0;
+	uint64_t insn_value = 0;
 	struct xt_trace_address_range *range_last_p = NULL;
 	uint64_t insn_cnt = 0;
 
@@ -415,7 +417,7 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 	while (insn_cnt) {
 		//
 		insn_value = get_an_insn(session, buffer, insn_addr, &insn_len);
-		if (insn_value == 1) {
+		if (insn_value == FAILED_TO_GET_AN_INSN) {
 			ret = 1;
 			goto error_end;
 		}
@@ -476,7 +478,7 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 								 insn_value) &
 							 0xfff);
 				} else {
-					printf("Err: insn 0x%x addr 0x%lx isn't condition branch\n",
+					printf("Error: insn value 0x%lx with addr 0x%lx is not a condition branch insn.\n",
 						insn_value, insn_addr);
 					goto error_end;
 				}
