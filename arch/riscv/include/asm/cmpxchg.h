@@ -37,7 +37,7 @@
 no_zabha:;								\
 	u32 *__ptr32b = (u32 *)((ulong)(p) & ~0x3);			\
 	ulong __s = ((ulong)(p) & (0x4 - sizeof(*p))) * BITS_PER_BYTE;	\
-	ulong __mask = GENMASK(BITS_PER_LONG - 1, 0)	\
+	ulong __mask = GENMASK(((sizeof(*p)) * BITS_PER_BYTE) - 1, 0)	\
 			<< __s;						\
 	ulong __newx = (ulong)(n) << __s;				\
 	ulong __retx;							\
@@ -162,7 +162,7 @@ end:;									\
 no_zabha_zacas:;							\
 	u32 *__ptr32b = (u32 *)((ulong)(p) & ~0x3);			\
 	ulong __s = ((ulong)(p) & (0x4 - sizeof(*p))) * BITS_PER_BYTE;	\
-	ulong __mask = GENMASK(BITS_PER_LONG - 1, 0)	\
+	ulong __mask = GENMASK(((sizeof(*p)) * BITS_PER_BYTE) - 1, 0)	\
 			<< __s;						\
 	ulong __newx = (ulong)(n) << __s;				\
 	ulong __oldx = (ulong)(o) << __s;				\
