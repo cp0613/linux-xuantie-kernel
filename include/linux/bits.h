@@ -30,9 +30,17 @@
 #define GENMASK_INPUT_CHECK(h, l) 0
 #endif
 
+#ifndef xlen_t
+#if __riscv_xlen == 64
+#define xlen_t u64
+#else
+#define xlen_t u32
+#endif
+#endif
+
 #define __GENMASK(h, l) \
-	(((~UL(0)) - (UL(1) << (l)) + 1) & \
-	 (~UL(0) >> (BITS_PER_LONG - 1 - (h))))
+	(ulong)(((~(xlen_t)(0)) - ((xlen_t)(1) << (l)) + 1) & \
+	 (~(xlen_t)(0) >> (sizeof(xlen_t) * BITS_PER_BYTE - 1 - (h))))
 #define GENMASK(h, l) \
 	(GENMASK_INPUT_CHECK(h, l) + __GENMASK(h, l))
 
