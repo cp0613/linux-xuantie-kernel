@@ -512,9 +512,8 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 
 				// update insn_addr
 				insn_addr = new_addr;
-			} else {
+			} else
 				insn_addr += insn_len;
-			}
 		} else if (xt_trace_is_indirect_branch_insn(insn_len,
 							    insn_value)) {
 			if (xt_trace_is_inferable_jump(insn_len, insn_value)) {
@@ -587,9 +586,8 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 
 				insn_addr += insn_len;
 			}
-		} else {
+		} else
 			insn_addr += insn_len;
-		}
 
 		insn_cnt -= insn_len / 2;
 		if (insn_cnt == 0)
@@ -1373,9 +1371,8 @@ int32_t xuantie_ntrace_decoder__process_full_message(struct perf_session *sessio
 				node = node->next;
 				error_message_happened = false;
 				continue;
-			} else {
+			} else
 				node->invalid = 1;
-			}
 
 			node = node->next;
 			continue;

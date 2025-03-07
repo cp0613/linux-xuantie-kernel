@@ -112,7 +112,7 @@ the Trace. At this point, "perf script" command is used.
 
 For perf script, we might use several commands:
 
-	perf script -k vmlinux --itrace=n0/1/2/3/4/5
+	perf script --itrace=n0/1/2/3/4/5
 
 Parameters Detail:
 
@@ -142,15 +142,11 @@ Parameters Detail:
                                  // instructions and all
 				 // ntrace messages
 
-	perf script equal to perf script --itrace=n4
+	"perf script" is equal to "perf script --itrace=n4"
 
 
-	-k vmlinux // to specify the kernel image file, which is
-                   // used for analyzing kernel-mode code running
-                   // in S-mode.
-
-NOTE: In perf script, we analyze the address range information between
-Start_addr and End_addr in an N-Trace Message, as well as the
+NOTE: In perf script, we analyze the address ranges information between
+Start_addr and End_addr for an N-Trace Message, as well as the
 disassembly information of the instructions within these address ranges.
 To obtain this information, perf needs to have access to the executed
 binary files and must be capable of opening ELF files, which requires
