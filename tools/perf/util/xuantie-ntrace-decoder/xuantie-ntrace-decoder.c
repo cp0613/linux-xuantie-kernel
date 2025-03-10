@@ -430,6 +430,14 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 			if (condition < 0)
 				goto error_end;
 
+			/* If the this condition branch insn is the last excuted
+			 * no need to analyze and add ranges any more.
+			 */
+			if (insn_cnt == (insn_len/2)) {
+				insn_cnt = 0;
+				break;
+			}
+
 			// if condition == true, create new address range
 			if (condition != 0) {
 				uint64_t new_addr = 0;
