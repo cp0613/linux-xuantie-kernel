@@ -381,6 +381,7 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 	uint64_t insn_value = 0;
 	struct xt_trace_address_range *range_last_p = NULL;
 	uint64_t insn_cnt = 0;
+	bool get_range_end = false;
 
 	if (add_resource_full_hist(hist))
 		return -1;
@@ -429,14 +430,6 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 			condition = get_one_hist();
 			if (condition < 0)
 				goto error_end;
-
-			/* If the this condition branch insn is the last excuted
-			 * no need to analyze and add ranges any more.
-			 */
-			if (insn_cnt == (insn_len/2)) {
-				insn_cnt = 0;
-				break;
-			}
 
 			// if condition == true, create new address range
 			if (condition != 0) {
@@ -491,24 +484,34 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 					goto error_end;
 				}
 
-				// get new address range
-				range_tmp = (struct xt_trace_address_range *)
-					malloc(sizeof(
-						struct xt_trace_address_range));
-				if (range_tmp == NULL) {
-					// msg
-					goto error_end;
-				}
-				range_tmp->start_addr = new_addr;
-				range_tmp->end_addr = new_addr;
-				range_tmp->next = NULL;
-
 				// set range_last_p->end_addr to insn_addr and add
 				// range_tmp to the range_last_p, then set range_last_p
 				// to range_tmp
+				// set range_last_p->end_addr to insn_addr
 				range_last_p->end_addr = insn_addr + insn_len;
-				range_last_p->next = range_tmp;
-				range_last_p = range_tmp;
+
+				/* If this condition branch insn is the last excuted
+				 * no need to add range_tmp any more.
+				 */
+				if (insn_cnt == (insn_len/2)) {
+					range_last_p->next = NULL;
+					get_range_end = true;
+				} else {
+					// get new address range and add range_tmp to the range_last_p
+					// then set range_last_p to range_tmp
+					range_tmp = (struct xt_trace_address_range *)malloc(sizeof(struct xt_trace_address_range));
+					if (range_tmp == NULL) {
+						// msg
+						goto error_end;
+					}
+					range_tmp->start_addr = new_addr;
+					range_tmp->end_addr = new_addr;
+					range_tmp->next = NULL;
+
+					// add range_tmp to last
+					range_last_p->next = range_tmp;
+					range_last_p = range_tmp;
+				}
 
 				// update insn_addr
 				insn_addr = new_addr;
@@ -556,25 +559,29 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 							 0xfffff);
 				}
 
-				// get new address range
-				range_tmp = (struct xt_trace_address_range *)
-					malloc(sizeof(
-						struct xt_trace_address_range));
-				if (range_tmp == NULL) {
-					// msg
-					printf("Fail to malloc space for address range1.\n");
-					goto error_end;
-				}
-				range_tmp->start_addr = new_addr;
-				range_tmp->end_addr = new_addr;
-				range_tmp->next = NULL;
+				/* If this indirect insn is the last excuted,
+				 * no need to add range_tmp any more.
+				 */
+				if (insn_cnt == (insn_len/2)) {
+					range_last_p->next = NULL;
+					get_range_end = true;
+				} else {
+					// get new address range
+					range_tmp = (struct xt_trace_address_range *)malloc(sizeof(struct xt_trace_address_range));
+					if (range_tmp == NULL) {
+						// msg
+						printf("Fail to malloc space for address range1.\n");
+						goto error_end;
+					}
+					range_tmp->start_addr = new_addr;
+					range_tmp->end_addr = new_addr;
+					range_tmp->next = NULL;
 
-				// set range_last_p->end_addr to insn_addr and add
-				// range_tmp to the range_last_p, then set range_last_p
-				// to range_tmp
-				range_last_p->end_addr = insn_addr + insn_len;
-				range_last_p->next = range_tmp;
-				range_last_p = range_tmp;
+					// add range_tmp to the range_last_p, then set range_last_p
+					// to range_tmp
+					range_last_p->next = range_tmp;
+					range_last_p = range_tmp;
+				}
 
 				// update insn_addr
 				insn_addr = new_addr;
@@ -605,7 +612,8 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 		goto error_end;
 	}
 
-	range_last_p->end_addr = insn_addr;
+	if (!get_range_end)
+		range_last_p->end_addr = insn_addr;
 	return 0;
 
 error_end:
