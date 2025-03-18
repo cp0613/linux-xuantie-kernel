@@ -559,6 +559,9 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 							 0xfffff);
 				}
 
+				// set range_last_p->end_addr to insn_addr
+				range_last_p->end_addr = insn_addr + insn_len;
+
 				/* If this indirect insn is the last excuted,
 				 * no need to add range_tmp any more.
 				 */
@@ -1761,6 +1764,7 @@ int32_t xt_trace_program_trace_display(bool with_msg, bool with_addr,
 			case TCODE_INDIRECTBRANCHSYNC:
 			case TCODE_INDIRECTBRANCHHIST:
 			case TCODE_INDIRECTBRANCHHISTSYNC:
+			case TCODE_PROGTRACECORRELATION:
 				if (node_p->invalid)
 					break;
 				printf(
