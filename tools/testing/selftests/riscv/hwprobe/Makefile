@@ -3,6 +3,7 @@
 # Originally tools/testing/arm64/abi/Makefile
 
 CFLAGS += -I$(top_srcdir)/tools/include
+CFLAGS += -I$(top_srcdir)/arch/riscv/include
 
 TEST_GEN_PROGS := hwprobe cbo
 
