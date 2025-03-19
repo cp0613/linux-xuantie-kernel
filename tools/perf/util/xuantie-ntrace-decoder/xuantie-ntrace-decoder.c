@@ -1000,7 +1000,7 @@ xt_trace_output_ntrace_message(struct xt_riscv_nexus_trace_message *msg,
 		case TCODE_OWNERSHIP: {
 			buf_p += sprintf(buf_p, "TCODE=2(OwnerShip)");
 			buf_p += sprintf(
-				buf_p, ", Privilege change to %s%s",
+				buf_p, ", Privilege is %s%s",
 				msg->sub_value.ownership.is_virtual ? "V" : "",
 				priv_mode_str[msg->sub_value.ownership.privilege & 0x3]);
 			if (msg->sub_value.ownership.has_context)
