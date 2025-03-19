@@ -165,18 +165,6 @@ static int __init xuantie_ntrace_encoder_init(void)
 		pr_info("trace_timestamp_enable=%d\n",
 			component->encoder.enable_timestamp);
 
-		ret = of_property_read_string(node, "trace_timestamp_runindebugmode",
-					      &str_tmp);
-		if (ret) {
-			pr_err("Failed to read 'trace_timestamp_runindebugmode'\n");
-			of_node_put(node);
-			return ret;
-		}
-		component->encoder.timestamp_runindebugmode =
-			strcmp(str_tmp, "true") == 0;
-		pr_info("trace_timestamp_runindebugmode=%d\n",
-			component->encoder.timestamp_runindebugmode);
-
 		ret = of_property_read_u32(
 			node, "trace_timestamp_mode",
 			&component->encoder.timestamp_mode);

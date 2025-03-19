@@ -103,8 +103,7 @@ build_encoder_config_info(struct xuantie_ntrace_component *component,
 	if (component->encoder_info.support_timestamp_enable &&
 	    component->encoder.enable_timestamp) {
 		encoder_config->timestamp_enable = true;
-		encoder_config->timestamp_run_in_debugmode =
-			component->encoder.timestamp_runindebugmode;
+		encoder_config->timestamp_run_in_debugmode = false;
 		encoder_config->timestamp_type = 1; // timestamp_external
 		encoder_config->timestamp_prescale =
 			component->encoder.timestamp_prescale;
@@ -402,9 +401,22 @@ static int xuantie_ntrace_event_add(struct perf_event *event, int flags)
 		}
 	}
 
-	/* Enable all Funnels. */
+	/* Enable all Level2 Funnels. */
 	list_for_each_entry(component, &xuantie_ntrace_controllers, list) {
-		if (component->type == XUANTIE_NTRACE_FUNNEL) {
+		if (component->type == XUANTIE_NTRACE_FUNNEL
+			&& component->funnel.level == LEVEL2_FUNNEL) {
+			if (xt_trace_funnel_enable(&component->funnel_info)) {
+				pr_info("Failed to enable trace funnel with base addr 0x%llx.\n",
+					component->funnel_info.base_addr);
+				goto error_end;
+			}
+		}
+	}
+
+	/* Enable all Level1 Funnels. */
+	list_for_each_entry(component, &xuantie_ntrace_controllers, list) {
+		if (component->type == XUANTIE_NTRACE_FUNNEL
+			&& component->funnel.level == LEVEL1_FUNNEL) {
 			if (xt_trace_funnel_enable(&component->funnel_info)) {
 				pr_info("Failed to enable trace funnel with base addr 0x%llx.\n",
 					component->funnel_info.base_addr);
@@ -468,10 +480,15 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int flags)
 				component->encoder.enable_timestamp);
 
 			component_encoder = component;
-		} else if (component->type == XUANTIE_NTRACE_FUNNEL) {
+		} else if (component->type == XUANTIE_NTRACE_FUNNEL
+			    && component->funnel.level == LEVEL1_FUNNEL) {
 			xt_trace_funnel_disable(&component->funnel_info);
 			xt_trace_funnel_close(&component->funnel_info);
-		} else {
+		} else if (component->type == XUANTIE_NTRACE_FUNNEL
+			    && component->funnel.level == LEVEL2_FUNNEL) {
+			xt_trace_funnel_disable(&component->funnel_info);
+			xt_trace_funnel_close(&component->funnel_info);
+		} else if (component->type == XUANTIE_NTRACE_SINK_SMEM) {
 			component_sink = component;
 			xt_trace_sink_disable(&component->sink_info);
 		}

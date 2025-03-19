@@ -38,13 +38,17 @@ struct xuantie_ntrace_encoder {
 	bool inst_trigger_enable;
 	//
 	bool enable_timestamp;
-	bool timestamp_runindebugmode;
 	u32 timestamp_mode;
 	u32 timestamp_prescale;
 };
 
+enum XT_FUNNEL_LEVEL {
+	LEVEL1_FUNNEL = 1,
+	LEVEL2_FUNNEL = 2,
+};
+
 struct xuantie_ntrace_funnel {
-	;
+	enum XT_FUNNEL_LEVEL level;
 };
 
 struct xuantie_ntrace_sink_smem {

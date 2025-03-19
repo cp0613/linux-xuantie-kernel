@@ -52,6 +52,12 @@ static int __init xuantie_ntrace_funnel_init(void)
 		pr_info("reg_base=0x%llx reg_size=0x%llx\n",
 			(u64)component->reg_base, (u64)component->reg_size);
 
+		component->funnel.level = LEVEL1_FUNNEL;
+		ret = of_property_read_u32(node, "level", &component->funnel.level);
+		if (ret)
+			pr_err("Failed to read 'level'\n");
+		pr_info("funnel level=%d\n", component->funnel.level);
+
 		child_node = of_get_child_by_name(node, "input_port");
 		if (!child_node) {
 			pr_err("Failed to find 'input_port'\n");
