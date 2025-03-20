@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0
 # Originally tools/testing/arm64/Makefile
 
+include ../lib.mk
 # When ARCH not overridden for crosscompiling, lookup machine
 ARCH ?= $(shell uname -m 2>/dev/null || echo not)
 
 ifneq (,$(filter $(ARCH),riscv))
-RISCV_SUBTARGETS ?= hwprobe vector mm pm cfi1 cfi2
+RISCV_SUBTARGETS ?= hwprobe vector mm pm
 else
 RISCV_SUBTARGETS :=
 endif
