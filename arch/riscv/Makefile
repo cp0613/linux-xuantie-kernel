@@ -109,7 +109,7 @@ KBUILD_CFLAGS += $(call as-option,-Wa$(comma)-mno-arch-attr)
 KBUILD_AFLAGS += $(call as-option,-Wa$(comma)-mno-arch-attr)
 
 KBUILD_CFLAGS_MODULE += $(call cc-option,-mno-relax)
-KBUILD_AFLAGS_MODULE += $(call as-option,-Wa$(comma)-mno-relax)
+KBUILD_AFLAGS_MODULE += $(call cc-option,-mno-relax) $(call as-option,-Wa$(comma)-mno-relax)
 
 # GCC versions that support the "-mstrict-align" option default to allowing
 # unaligned accesses.  While unaligned accesses are explicitly allowed in the
