@@ -172,6 +172,10 @@ static int xuantie_ntrace_flush(struct perf_session *session __maybe_unused,
 		struct auxtrace_queue *queue = &queues->queue_array[i];
 		struct auxtrace_buffer *buffer = NULL;
 
+		// If get CTRL_C
+		if (XT_PERF_GET_CTRL_C())
+			break;
+
 		buffer = auxtrace_buffer__next(queue, NULL);
 
 		while (buffer) {
@@ -222,6 +226,10 @@ static int xuantie_ntrace_flush(struct perf_session *session __maybe_unused,
 					return 0;
 				}
 			}
+
+			// If get CTRL_C
+			if (XT_PERF_GET_CTRL_C())
+				return 0;
 
 			buffer = auxtrace_buffer__next(queue, buffer);
 		}

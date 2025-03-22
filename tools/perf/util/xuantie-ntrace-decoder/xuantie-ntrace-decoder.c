@@ -850,8 +850,8 @@ int32_t xuantie_ntrace_decoder__process_metedata(
 	// for MESO/MDO
 	xt_trace_mseo_mdo_init(buf, len);
 
-	// get next msg
-	while (1) {
+	// get next msg, If get CTRL_C, exit
+	while (!XT_PERF_GET_CTRL_C()) {
 		// If repeat_msg_count !=0, not update msg
 		if (repeat_msg_count == 0) {
 			// get a new msg
@@ -1635,7 +1635,7 @@ xt_trace_disassemble_and_display(char *file_name, struct xt_trace_address_range 
 	info.arch = bfd_get_arch(bfdf);
 	info.mach = bfd_get_mach(bfdf);
 
-	while (range_p) {
+	while (range_p && !XT_PERF_GET_CTRL_C()) {
 		//printf range start and end first
 		printf("      {0x%lx, 0x%lx - 1}\n", range_p->start_addr, range_p->end_addr);
 
@@ -1724,7 +1724,7 @@ int32_t xt_trace_program_trace_display(bool with_msg, bool with_addr,
 	char str[STR_LEN_MAX] = { '\0' };
 	struct xt_trace_program_flow_node *node_p = trace_program_header;
 
-	while (node_p) {
+	while (node_p && !XT_PERF_GET_CTRL_C()) {
 		// printf n-trace message contents
 		memset(str, 0, STR_LEN_MAX);
 
