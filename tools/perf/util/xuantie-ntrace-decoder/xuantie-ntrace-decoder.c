@@ -14,6 +14,12 @@
 #include "xuantie-mseo-mdo.h"
 #include "xuantie-ntrace-message.h"
 
+enum GET_AN_INSN_STATE {
+	GET_AN_INSN_FIRST = 0,
+	GET_AN_INSN_MIDDLE = 1,
+	GET_AN_INSN_END = 2,
+};
+
 // used for i-cnt and hist
 struct xt_trace_address_range {
 	uint64_t start_addr;
@@ -77,80 +83,106 @@ static u8 riscv_get_cpu_mode(u64 vaddr)
 
 static uint64_t get_an_insn(struct perf_session *session,
 			    struct auxtrace_buffer *buffer, uint64_t addr,
-			    uint32_t *len)
+			    uint32_t *len, enum GET_AN_INSN_STATE state, uint64_t addr2)
 {
-	uint8_t buf[8] = { 0 };
-	u8 cpumode = PERF_RECORD_MISC_KERNEL;
-	struct addr_location al;
-	struct dso *dso;
-	struct thread *thread;
+	static struct addr_location al;
+	static struct dso *dso;
+	static struct thread *thread;
+	static u64 start_addr_offset;
 	u64 offset;
-	u32 length;
-	//struct symbol *sym = NULL;
+	uint8_t buf[8] = {0};
+	long length;
+	u8 cpumode;
 
-	thread = machine__findnew_thread(&session->machines.host, buffer->pid, buffer->tid);
+	if (state == GET_AN_INSN_FIRST) {
+		cpumode = PERF_RECORD_MISC_KERNEL;
+		thread = machine__findnew_thread(&session->machines.host, buffer->pid, buffer->tid);
 
-	cpumode = riscv_get_cpu_mode(addr);
+		cpumode = riscv_get_cpu_mode(addr);
 
-	addr_location__init(&al);
-	if (!thread__find_map(thread, cpumode, addr, &al))
-		goto error_end;
-	dso = map__dso(al.map);
-	if (!dso)
-		goto error_end;
-	if (dso->data.status == DSO_DATA_STATUS_ERROR &&
-	    dso__data_status_seen(dso, DSO_DATA_STATUS_SEEN_ITRACE))
-		goto error_end;
-	offset = map__map_ip(al.map, addr);
-
-	if (cpumode == PERF_RECORD_MISC_KERNEL)
-		offset -= (0xffffffff80002000 - 0x3000); // readelf -S vmlinux in .text
-
-	map__load(al.map);
-	length = dso__data_read_offset(dso, maps__machine(thread__maps(thread)),
-				       offset, buf, 2);
-	if (length <= 0) {
-		printf("XUANTIE NTrace: Debug data not found for address %#" PRIx64
-		       " in %s\n",
-		       addr, dso->long_name ? dso->long_name : "Unknown");
-		goto error_end;
-	}
-
-	//sym = dso__find_symbol(dso, al.addr);
-	//if (sym)
-	//	printf("al.level=%c al.addr=0x%lx addr=0x%lx sym.name=%s\n",
-	//		al.level, al.addr, addr, sym->name);
-
-	/* insn length */
-	*len = riscv_insn_length(buf[0]);
-	if (*len > 2) {
-		length = dso__data_read_offset(
-			dso, maps__machine(thread__maps(thread)), offset + 2,
-			buf + 2, *len - 2);
+		addr_location__init(&al);
+		if (!thread__find_map(thread, cpumode, addr, &al))
+			goto error_end;
+		dso = map__dso(al.map);
+		if (!dso)
+			goto error_end;
+		if (dso->data.status == DSO_DATA_STATUS_ERROR &&
+		    dso__data_status_seen(dso, DSO_DATA_STATUS_SEEN_ITRACE))
+			goto error_end;
+		offset = map__map_ip(al.map, addr);
+		if (cpumode == PERF_RECORD_MISC_KERNEL)
+			offset -= (0xffffffff80002000 - 0x3000); // readelf -S vmlinux in .text
+		map__load(al.map);
+		length = dso__data_read_offset(dso, maps__machine(thread__maps(thread)),
+			offset, buf, 2);
 		if (length <= 0) {
-			printf("XUANTIE NTrace: Debug data not found for address %#" PRIx64
-			       " in %s\n",
-			       addr + 2,
-			       dso->long_name ? dso->long_name : "Unknown");
+			//printf ("XUANTIE NTrace: Debug data not found for address %#"PRIx64" in %s\n",
+			//	addr, dso->long_name ? dso->long_name : "Unknown");
+			goto error_end;
+		}
+		/* insn length */
+		*len = riscv_insn_length(buf[0]);
+		if (*len > 2) {
+			length = dso__data_read_offset(dso, maps__machine(thread__maps(thread)),
+					offset + 2, buf + 2, *len - 2);
+			if (length <= 0) {
+				printf("XUANTIE NTrace: Debug data not found for address %#"PRIx64" in %s\n",
+						addr + 2, dso->long_name ? dso->long_name : "Unknown");
+				goto error_end;
+			}
+
+			if (length != (*len - 2)) {
+				printf("XUANTIE NTrace: can't get full insn value for address %#"PRIx64" in %s\n",
+					addr, dso->long_name ? dso->long_name : "Unknown");
+				goto error_end;
+			}
+		}
+
+		start_addr_offset = offset;
+		return *(uint64_t *)buf;
+	} else if (state == GET_AN_INSN_MIDDLE) {
+		if (dso == NULL || thread == NULL)
+			return FAILED_TO_GET_AN_INSN;
+		if (addr2 > addr)
+			offset = start_addr_offset + (addr2 - addr);
+		else
+			offset = start_addr_offset - (addr - addr2);
+
+		length = dso__data_read_offset(dso, maps__machine(thread__maps(thread)), offset, buf, 2);
+		if (length <= 0) {
+			printf("XUANTIE NTrace: Debug data not found for address %#"PRIx64" in %s\n",
+				addr2, dso->long_name ? dso->long_name : "Unknown");
 			goto error_end;
 		}
 
-		if (length != (*len - 2)) {
-			printf("XUANTIE NTrace: can't get full insn value for address %#" PRIx64
-			       " in %s\n",
-			       addr,
-			       dso->long_name ? dso->long_name : "Unknown");
-			goto error_end;
+		/* insn length */
+		*len = riscv_insn_length(buf[0]);
+		if (*len > 2) {
+			length = dso__data_read_offset(dso, maps__machine(thread__maps(thread)),
+				offset + 2, buf + 2, *len - 2);
+			if (length <= 0) {
+				printf("XUANTIE NTrace: Debug data not found for address %#"PRIx64" in %s\n",
+					addr2 + 2, dso->long_name ? dso->long_name : "Unknown");
+				goto error_end;
+			}
+
+			if (length != (*len - 2)) {
+				printf("XUANTIE NTrace: can't get full insn value for address %#"PRIx64" in %s\n",
+					addr2, dso->long_name ? dso->long_name : "Unknown");
+				goto error_end;
+			}
 		}
+		return *(uint64_t *)buf;
+	} else {
+		if (dso == NULL || thread == NULL)
+			return FAILED_TO_GET_AN_INSN;
 	}
-	//printf("al.level=%c al.addr=0x%lx addr=0x%lx len=%d insn=%lx\n",
-	//	al.level, al.addr, addr, *len, *(uint64_t *)buf);
-	addr_location__exit(&al);
-	return *(uint64_t *)buf;
 
 error_end:
 	//printf("can't read insn for addr %#" PRIx64 "\n", addr);
 	addr_location__exit(&al);
+	dso = NULL;
+	thread = NULL;
 	return FAILED_TO_GET_AN_INSN;
 }
 
@@ -382,6 +414,7 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 	struct xt_trace_address_range *range_last_p = NULL;
 	uint64_t insn_cnt = 0;
 	bool get_range_end = false;
+	enum GET_AN_INSN_STATE state = GET_AN_INSN_FIRST;
 
 	if (add_resource_full_hist(hist))
 		return -1;
@@ -417,11 +450,12 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 
 	while (insn_cnt) {
 		//
-		insn_value = get_an_insn(session, buffer, insn_addr, &insn_len);
+		insn_value = get_an_insn(session, buffer, start_addr, &insn_len, state, insn_addr);
 		if (insn_value == FAILED_TO_GET_AN_INSN) {
 			ret = 1;
 			goto error_end;
 		}
+		state = GET_AN_INSN_MIDDLE;
 
 		if (xt_trace_is_condition_branch_insn(insn_len, insn_value)) {
 			int32_t condition = 0;
@@ -617,6 +651,9 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 
 	if (!get_range_end)
 		range_last_p->end_addr = insn_addr;
+
+	get_an_insn(NULL, NULL, 0, NULL, GET_AN_INSN_END, 0);
+
 	return 0;
 
 error_end:
@@ -627,6 +664,9 @@ error_end:
 		*range = (*range)->next;
 		free(range_tmp);
 	}
+
+	get_an_insn(NULL, NULL, 0, NULL, GET_AN_INSN_END, 0);
+
 	return ret;
 }
 
