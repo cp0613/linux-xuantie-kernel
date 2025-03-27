@@ -425,14 +425,18 @@ static int xuantie_ntrace_event_add(struct perf_event *event, int flags)
 		}
 	}
 
-	buf = perf_aux_output_begin(&xuantie_ntrace_pmu.handle, event);
-	if (!buf)
-		pr_info("%s:%d perf_aux_output_begin failed\n", __func__, __LINE__);
-	//pr_info("base=%p length=%ld nr_pages=%ld pos=%ld\n", buf->base, buf->length,
-	//	buf->nr_pages, buf->pos);
+	if (flags & PERF_EF_START) {
+		buf = perf_aux_output_begin(&xuantie_ntrace_pmu.handle, event);
+		if (!buf) {
+			pr_info("%s:%d perf_aux_output_begin failed\n", __func__, __LINE__);
+			event->hw.state = PERF_HES_STOPPED;
+			goto error_end;
+		}
+		buf->pos = xuantie_ntrace_pmu.handle.head % buf->length;
+		// pr_info("base=%px length=%ld nr_pages=%d pos=%ld\n", buf->base, buf->length, buf->nr_pages, buf->pos);
 
-	if (flags & PERF_EF_START)
 		xuantie_ntrace_event_start(event, 0);
+	}
 
 	return 0;
 
@@ -464,7 +468,7 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int flags)
 	struct xuantie_ntrace_component *component_sink;
 	struct xuantie_ntrace_component *component_encoder;
 	struct xuantie_saved_conifg config;
-	struct xuantie_ntrace_aux_buf *buf = perf_get_aux(&xuantie_ntrace_pmu.handle);
+	struct xuantie_ntrace_aux_buf *buf;
 
 	// pr_info("%s:%d flags=%d\n", __func__, __LINE__, flags);
 
@@ -531,16 +535,20 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int flags)
 	trace_data_section0_start = trace_data_section0_start - component_sink->sink.start_addr;
 	trace_data_section1_start = trace_data_section1_start - component_sink->sink.start_addr;
 
+	buf = perf_get_aux(&xuantie_ntrace_pmu.handle);
+	if (!buf) {
+		xt_trace_sink_close(&component_sink->sink_info);
+		return;
+	}
+
 	/* Build saved config */
 	xuantie_build_saved_config(&config, component_encoder, trace_write_point & 0x1);
 
-	/* If the aux buf space is insufficient, discard the data */
-	if ((buf->pos + trace_data_section0_size + trace_data_section1_size +
-	     sizeof(struct xuantie_saved_conifg)) > buf->length) {
-		pr_warn("aux buf insufficient, discard the data\n");
-		perf_aux_output_end(&xuantie_ntrace_pmu.handle, buf->length - buf->pos);
-		xt_trace_sink_close(&component_sink->sink_info);
-		return;
+	/* If the aux buf space will insufficient, ignoring tail data */
+	if ((trace_data_section0_size + trace_data_section1_size + sizeof(struct xuantie_saved_conifg)) > (buf->length - buf->pos)) {
+		pr_info("Insufficient space in aux map buf, ignoring tail data\n");
+		perf_aux_output_skip(&xuantie_ntrace_pmu.handle, buf->length - buf->pos);
+		buf->pos = 0;
 	}
 
 	/* Save trace config to Perf.data. */
