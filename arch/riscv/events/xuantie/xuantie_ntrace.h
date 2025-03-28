@@ -30,6 +30,8 @@ struct xuantie_ntrace_encoder {
 	u32 inst_mode;
 	bool send_context;
 	//
+	bool stall_enable;
+	//
 	bool inhibit_src;
 	u32 src_id;
 	//

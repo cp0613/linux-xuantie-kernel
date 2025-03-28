@@ -75,7 +75,7 @@ build_encoder_config_info(struct xuantie_ntrace_component *component,
 	encoder_config->sennd_context = component->encoder.send_context;
 	encoder_config->inst_trigger_enable =
 		component->encoder.inst_trigger_enable;
-	encoder_config->inst_stall_ena = false;
+	encoder_config->inst_stall_ena = component->encoder.stall_enable;
 	encoder_config->inhibit_src = component->encoder.inhibit_src;
 	encoder_config->inst_sync_mode = component->encoder.inst_sync_mode;
 	encoder_config->inst_sync_max = component->encoder.inst_sync_max;

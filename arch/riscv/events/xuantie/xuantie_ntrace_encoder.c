@@ -103,6 +103,13 @@ static int __init xuantie_ntrace_encoder_init(void)
 		component->encoder.send_context = strcmp(str_tmp, "true") == 0;
 		pr_info("trace_encoder_context=%d\n", component->encoder.send_context);
 
+		ret = of_property_read_string(node, "trace_encoder_inst_stall_enable", &str_tmp);
+		if (ret)
+			component->encoder.stall_enable = true;
+		else
+			component->encoder.stall_enable = strcmp(str_tmp, "true") == 0;
+		pr_info("trace_encoder_inst_stall_enable=%d\n", component->encoder.stall_enable);
+
 		ret = of_property_read_string(node, "trace_encoder_inhibit_src", &str_tmp);
 		if (ret) {
 			pr_err("Failed to read 'trace_encoder_inhibit_src'\n");
