@@ -67,7 +67,10 @@ static __always_inline void __mstate_csr_save(struct __riscv_m_ext_state *dest)
 		"csrrw	%0, " __stringify(CSR_XMRSTART) ", 0\n\t"
 		"csrr	%1, " __stringify(CSR_XMCSR) "\n\t"
 		"csrr	%2, " __stringify(CSR_XMSIZE) "\n\t"
-		: "=r" (dest->xmrstart), "=r" (dest->xmcsr), "=r" (dest->xmsize)
+		"csrr	%3, " __stringify(CSR_XMXADESC) "\n\t"
+		"csrr	%4, " __stringify(CSR_XMXBDESC) "\n\t"
+		: "=r" (dest->xmrstart), "=r" (dest->xmcsr), "=r" (dest->xmsize),
+		  "=r" (dest->xmxadesc), "=r" (dest->xmxbdesc)
 		: :);
 }
 
@@ -77,7 +80,10 @@ static __always_inline void __mstate_csr_restore(struct __riscv_m_ext_state *src
 		"csrw	" __stringify(CSR_XMRSTART) ", %0\n\t"
 		"csrw	" __stringify(CSR_XMCSR) ", %1\n\t"
 		"csrw	" __stringify(CSR_XMSIZE) ", %2\n\t"
-		: : "r" (src->xmrstart), "r" (src->xmcsr), "r" (src->xmsize)
+		"csrw	" __stringify(CSR_XMXADESC) ", %2\n\t"
+		"csrw	" __stringify(CSR_XMXBDESC) ", %2\n\t"
+		: : "r" (src->xmrstart), "r" (src->xmcsr), "r" (src->xmsize),
+		    "r" (src->xmxadesc), "r" (src->xmxbdesc)
 		:);
 }
 

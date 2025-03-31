@@ -132,6 +132,8 @@ struct __riscv_m_ext_state {
 	xlen_t xmrstart;
 	xlen_t xmcsr;
 	xlen_t xmsize;
+	xlen_t xmxadesc;
+	xlen_t xmxbdesc;
 	void *datap;
 };
 

@@ -495,6 +495,8 @@
 #define CSR_XMRSTART		0x801
 #define CSR_XMCSR		0x802
 #define CSR_XMSIZE		0x803
+#define CSR_XMXADESC		0x810
+#define CSR_XMXBDESC		0x811
 #define CSR_XMLENB		0xcc0
 #define CSR_XRLENB		0xcc1
 #define CSR_XMISA		0xcc2

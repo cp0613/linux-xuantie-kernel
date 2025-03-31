@@ -81,7 +81,8 @@ static bool insn_is_vector(u32 insn_buf)
 	case RVG_OPCODE_SYSTEM:
 		csr = RVG_EXTRACT_SYSTEM_CSR(insn_buf);
 		if ((csr >= CSR_VSTART && csr <= CSR_VCSR) ||
-		    (csr >= CSR_VL && csr <= CSR_VLENB))
+		    (csr >= CSR_VL && csr <= CSR_VLENB) ||
+		    (csr >= CSR_XMXADESC && csr <= CSR_XMXBDESC))
 			return true;
 	}
 
