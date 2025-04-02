@@ -7,6 +7,7 @@
 #define __RISCV_HW_BREAKPOINT_H
 
 struct task_struct;
+struct perf_event;
 
 #ifdef CONFIG_HAVE_HW_BREAKPOINT
 
@@ -288,33 +289,6 @@ void arch_uninstall_hw_breakpoint(struct perf_event *bp);
 void hw_breakpoint_pmu_read(struct perf_event *bp);
 void clear_ptrace_hw_breakpoint(struct task_struct *tsk);
 void flush_ptrace_hw_breakpoint(struct task_struct *tsk);
-
-#else
-
-int hw_breakpoint_slots(int type)
-{
-	return 0;
-}
-
-static inline void clear_ptrace_hw_breakpoint(struct task_struct *tsk)
-{
-}
-
-static inline void flush_ptrace_hw_breakpoint(struct task_struct *tsk)
-{
-}
-
-void arch_enable_hw_breakpoint(struct perf_event *bp)
-{
-}
-
-void arch_update_hw_breakpoint(struct perf_event *bp)
-{
-}
-
-void arch_disable_hw_breakpoint(struct perf_event *bp)
-{
-}
 
 #endif /* CONFIG_HAVE_HW_BREAKPOINT */
 #endif /* __RISCV_HW_BREAKPOINT_H */
