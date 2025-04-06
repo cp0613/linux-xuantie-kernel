@@ -12,6 +12,26 @@
 #include "../hwprobe/hwprobe.h"
 #include "../../kselftest_harness.h"
 
+#ifndef RISCV_HWPROBE_EXT_SSDTSO
+#define RISCV_HWPROBE_EXT_SSDTSO        (1ULL << 36)
+#endif
+
+#ifndef PR_SET_MEMORY_CONSISTENCY_MODEL
+#define PR_SET_MEMORY_CONSISTENCY_MODEL         77
+#endif
+
+#ifndef PR_GET_MEMORY_CONSISTENCY_MODEL
+#define PR_GET_MEMORY_CONSISTENCY_MODEL         78
+#endif
+
+#ifndef PR_MEMORY_CONSISTENCY_MODEL_RISCV_WMO
+#define PR_MEMORY_CONSISTENCY_MODEL_RISCV_WMO  1
+#endif
+
+#ifndef PR_MEMORY_CONSISTENCY_MODEL_RISCV_TSO
+#define PR_MEMORY_CONSISTENCY_MODEL_RISCV_TSO  2
+#endif
+
 /*
  * We have the following cases:
  * 1) DTSO support disabed in the kernel config:
@@ -41,18 +61,24 @@ TEST(dtso)
 			    ret == PR_MEMORY_CONSISTENCY_MODEL_RISCV_TSO);
 		ssdtso_configured = true;
 	}
+	TH_LOG("ssdtso_configured = %s", (ret < 0) ? "false" : "true");
 
 	pair.key = RISCV_HWPROBE_KEY_IMA_EXT_0;
 	ret = riscv_hwprobe(&pair, 1, 0, NULL, 0);
 	ASSERT_GE(ret, 0);
 	ASSERT_EQ(pair.key, RISCV_HWPROBE_KEY_IMA_EXT_0);
 	ssdtso_available = !!(pair.value & RISCV_HWPROBE_EXT_SSDTSO);
+	TH_LOG("ssdtso_available = %s", ssdtso_available ? "true" : "false");
 
 	if (ssdtso_configured) {
 		/* Read out current model. */
 		ret = prctl(PR_GET_MEMORY_CONSISTENCY_MODEL);
 		ASSERT_TRUE(ret == PR_MEMORY_CONSISTENCY_MODEL_RISCV_WMO ||
 			    ret == PR_MEMORY_CONSISTENCY_MODEL_RISCV_TSO);
+
+		TH_LOG("Read out current model = %d('%s')", ret,
+			ret == PR_MEMORY_CONSISTENCY_MODEL_RISCV_WMO ?
+			"WMO" : "TSO");
 
 		if (ssdtso_available) {
 			/* Switch to TSO. */
@@ -62,6 +88,10 @@ TEST(dtso)
 			ret = prctl(PR_GET_MEMORY_CONSISTENCY_MODEL);
 			ASSERT_TRUE(ret == PR_MEMORY_CONSISTENCY_MODEL_RISCV_TSO);
 
+			TH_LOG("prctl(PR_MEMORY_CONSISTENCY_MODEL_RISCV_TSO, '%s'(%d))",
+				ret == PR_MEMORY_CONSISTENCY_MODEL_RISCV_WMO ?
+				"WMO" : "TSO", ret);
+
 			/* Try switching back to WMO (must fail). */
 			ret = prctl(PR_SET_MEMORY_CONSISTENCY_MODEL,
 				    PR_MEMORY_CONSISTENCY_MODEL_RISCV_WMO);
@@ -70,6 +100,9 @@ TEST(dtso)
 			ASSERT_TRUE(ret == PR_MEMORY_CONSISTENCY_MODEL_RISCV_TSO);
 		} else {
 			/* Set the same model, that's currently active. */
+			TH_LOG("prctl(PR_SET_MEMORY_CONSISTENCY_MODEL, '%s'(%d))",
+				ret == PR_MEMORY_CONSISTENCY_MODEL_RISCV_WMO ?
+				"WMO" : "TSO", ret);
 			ret = prctl(PR_SET_MEMORY_CONSISTENCY_MODEL, ret);
 			ASSERT_EQ(ret, 0);
 		}
