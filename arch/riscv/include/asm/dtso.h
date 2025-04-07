@@ -47,13 +47,13 @@ static inline void dtso_enable(void)
 static inline unsigned long get_memory_consistency_model(
 		struct task_struct *task)
 {
-	return task->memory_consistency_model;
+	return task->thread.memory_consistency_model;
 }
 
 static inline void set_memory_consitency_model(struct task_struct *task,
 		unsigned long model)
 {
-	task->memory_consistency_model = model;
+	task->thread.memory_consistency_model = model;
 }
 
 static inline void dtso_restore(struct task_struct *task)

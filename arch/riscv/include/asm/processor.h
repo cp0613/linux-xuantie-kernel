@@ -104,6 +104,9 @@ struct thread_struct {
 #ifdef CONFIG_HAVE_HW_BREAKPOINT
 	struct perf_event *ptrace_bps[HW_BP_NUM_MAX];
 #endif
+#ifdef CONFIG_DYNAMIC_MEMORY_CONSISTENCY_MODEL
+	unsigned long memory_consistency_model;
+#endif
 } __attribute__((__aligned__(sizeof(xlen_t))));
 
 /* Whitelist the fstate from the task_struct for hardened usercopy */
