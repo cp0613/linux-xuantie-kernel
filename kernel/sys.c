@@ -2328,12 +2328,12 @@ int __weak arch_get_indir_br_lp_status(struct task_struct *t, unsigned long __us
 	return -EINVAL;
 }
 
-int __weak arch_set_indir_br_lp_status(struct task_struct *t, unsigned long __user *status)
+int __weak arch_set_indir_br_lp_status(struct task_struct *t, unsigned long status)
 {
 	return -EINVAL;
 }
 
-int __weak arch_lock_indir_br_lp_status(struct task_struct *t, unsigned long __user *status)
+int __weak arch_lock_indir_br_lp_status(struct task_struct *t, unsigned long status)
 {
 	return -EINVAL;
 }
@@ -2806,12 +2806,12 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 	case PR_SET_INDIR_BR_LP_STATUS:
 		if (arg3 || arg4 || arg5)
 			return -EINVAL;
-		error = arch_set_indir_br_lp_status(me, (unsigned long __user *) arg2);
+		error = arch_set_indir_br_lp_status(me, arg2);
 		break;
 	case PR_LOCK_INDIR_BR_LP_STATUS:
 		if (arg3 || arg4 || arg5)
 			return -EINVAL;
-		error = arch_lock_indir_br_lp_status(me, (unsigned long __user *) arg2);
+		error = arch_lock_indir_br_lp_status(me, arg2);
 		break;
 	case PR_SET_MEMORY_CONSISTENCY_MODEL:
 		error = SET_MEMORY_CONSISTENCY_MODEL(arg2);

@@ -20,12 +20,6 @@
 
 #define SHSTK_ENTRY_SIZE sizeof(void *)
 
-asmlinkage void __init fwft_cfi_zicfiss_enable(void)
-{
-	sbi_ecall(SBI_EXT_FWFT, SBI_EXT_FWFT_SET, SBI_FWFT_SHADOW_STACK,
-		1, SBI_FWFT_SET_FLAG_LOCK, 0, 0, 0);
-}
-
 bool is_shstk_enabled(struct task_struct *task)
 {
 	return task->thread_info.user_cfi_state.ubcfi_en ? true : false;

@@ -615,8 +615,8 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm,
 	atomic_long_and(~(unsigned long)_PAGE_WRITE, (atomic_long_t *)ptep);
 #else
 	volatile pte_t read_pte = *ptep;
-	atomic64_set((atomic64_t *)ptep,
-			((pte_val(read_pte) & ~(ptval_t)_PAGE_WRITE) | _PAGE_READ));
+	atomic_long_set((atomic_long_t *)ptep,
+			((pte_val(read_pte) & ~(unsigned long)_PAGE_WRITE) | _PAGE_READ));
 #endif
 }
 

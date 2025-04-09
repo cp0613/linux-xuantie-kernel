@@ -214,7 +214,6 @@ int copy_thread(struct task_struct *p, const struct kernel_clone_args *args)
 	unsigned long clone_flags = args->flags;
 	unsigned long usp = args->stack;
 	unsigned long tls = args->tls;
-	unsigned long ssp = 0;
 	struct pt_regs *childregs = task_pt_regs(p);
 
 #ifdef CONFIG_RISCV_ISA_POINTER_MASKING
@@ -238,18 +237,11 @@ int copy_thread(struct task_struct *p, const struct kernel_clone_args *args)
 		p->thread.s[0] = (unsigned long)args->fn;
 		p->thread.s[1] = (unsigned long)args->fn_arg;
 	} else {
-		/* allocate new shadow stack if needed. In case of CLONE_VM we have to */
-		ssp = shstk_alloc_thread_stack(p, args);
-		if (IS_ERR_VALUE(ssp))
-			return PTR_ERR((void *)ssp);
-
 		*childregs = *(current_pt_regs());
 		/* Turn off status.VS */
 		riscv_v_vstate_off(childregs);
 		if (usp) /* User fork */
 			childregs->sp = usp;
-		if (ssp) /* if needed, set new ssp */
-			set_active_shstk(p, ssp);
 		if (clone_flags & CLONE_SETTLS)
 			childregs->tp = tls;
 		childregs->a0 = 0; /* Return value of fork() */

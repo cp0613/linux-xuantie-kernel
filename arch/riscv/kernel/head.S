@@ -176,7 +176,12 @@ secondary_start_sbi:
 #endif
 	call setup_trap_vector
 #ifdef CONFIG_RISCV_USER_CFI
-	call fwft_cfi_zicfiss_enable
+	li a7, SBI_EXT_FWFT
+	li a6, SBI_EXT_FWFT_SET
+	li a0, SBI_FWFT_SHADOW_STACK
+	li a1, 1 /* enable supervisor to access shadow stack access */
+	li a2, SBI_FWFT_SET_FLAG_LOCK
+	ecall
 #endif
 	tail smp_callin
 #endif /* CONFIG_SMP */
@@ -326,7 +331,12 @@ clear_bss_done:
 	la sp, init_thread_union + THREAD_SIZE
 	addi sp, sp, -PT_SIZE_ON_STACK
 #ifdef CONFIG_RISCV_USER_CFI
-	call fwft_cfi_zicfiss_enable
+	li a7, SBI_EXT_FWFT
+	li a6, SBI_EXT_FWFT_SET
+	li a0, SBI_FWFT_SHADOW_STACK
+	li a1, 1 /* enable supervisor to access shadow stack access */
+	li a2, SBI_FWFT_SET_FLAG_LOCK
+	ecall
 #endif
 #ifdef CONFIG_KASAN
 	call kasan_early_init
