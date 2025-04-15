@@ -6,7 +6,7 @@ include ../lib.mk
 ARCH ?= $(shell uname -m 2>/dev/null || echo not)
 
 ifneq (,$(filter $(ARCH),riscv))
-RISCV_SUBTARGETS ?= dtso hwprobe vector mm pm
+RISCV_SUBTARGETS ?= dtso hwprobe vector mm pm string_zbb cfi3
 else
 RISCV_SUBTARGETS :=
 endif
