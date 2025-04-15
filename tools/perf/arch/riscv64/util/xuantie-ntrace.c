@@ -112,6 +112,7 @@ static int xuantie_ntrace_recording_options(struct auxtrace_record *itr,
 			evsel->needs_auxtrace_mmap = true;
 			xuantie_ntrace_evsel = evsel;
 			opts->full_auxtrace = true;
+			opts->no_inherit = true;
 		}
 	}
 
