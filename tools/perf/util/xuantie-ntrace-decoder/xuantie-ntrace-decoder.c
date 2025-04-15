@@ -412,7 +412,7 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 	uint32_t insn_len = 0;
 	uint64_t insn_value = 0;
 	struct xt_trace_address_range *range_last_p = NULL;
-	uint64_t insn_cnt = 0;
+	int64_t insn_cnt = 0;
 	bool get_range_end = false;
 	enum GET_AN_INSN_STATE state = GET_AN_INSN_FIRST;
 
