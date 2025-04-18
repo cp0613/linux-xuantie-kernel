@@ -148,13 +148,6 @@ void start_thread(struct pt_regs *regs, unsigned long pc,
 	else
 		regs->status |= SR_UXL_64;
 #endif
-	/*
-	 * read current envcfg settings, AND it with base settings applicable
-	 * for all the tasks. Base settings should've been set up during CPU
-	 * bring up.
-	 */
-	if (riscv_cpu_has_extension_unlikely(smp_processor_id(), RISCV_ISA_EXT_XLINUXENVCFG))
-		current->thread_info.envcfg = csr_read(CSR_ENVCFG) & ENVCFG_BASE;
 }
 
 void flush_thread(void)
