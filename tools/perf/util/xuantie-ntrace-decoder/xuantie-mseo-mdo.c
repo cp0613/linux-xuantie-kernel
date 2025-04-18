@@ -193,7 +193,10 @@ static int32_t xt_trace_get_variable_message_fields(uint32_t *length,
 	while (1) {
 		// FIXME: ...
 		// FIXED: obtained_size can bigger than 64, not than 70
-		if (obtained_size > 64) {
+		// if (trace_data_left_size == 1)..left 63-bit
+		// 63-bits needs 66-bits
+		// total 67-bits
+		if (obtained_size >= 67) {
 			// msg
 			return -1;
 		}
@@ -205,11 +208,6 @@ static int32_t xt_trace_get_variable_message_fields(uint32_t *length,
 		*value += (uint64_t)trace_data_get_mdo(read_buffer)
 			  << obtained_size;
 		obtained_size += 6;
-
-		if ((obtained_size + 6) > 64) {
-			// msg
-			return -1;
-		}
 
 		if (trace_data_get_mseo(read_buffer) != 0)
 			break;
@@ -233,6 +231,7 @@ int32_t xt_trace_analyze_message_field(struct xt_riscv_nexus_trace_message *msg,
 
 	memset(msg, 0, sizeof(struct xt_riscv_nexus_trace_message));
 
+	xt_trace_clear_left_data();
 	if (!trace_data_wrapped && wrapped_used)
 		ret = xt_trace_get_tcode_start(&tcode);
 	else
