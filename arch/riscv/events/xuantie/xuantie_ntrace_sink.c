@@ -87,7 +87,7 @@ static int __init xuantie_ntrace_sink_init(void)
 		component->sink.vaddr = ioremap(rmem.start, rmem.end - rmem.start + 1);
 		component->sink.start_addr = rmem.start;
 		component->sink.limit_addr = rmem.end;
-		pr_info("reserved-memory {0x%llx-0x%llx}@0x%p\n", (u64)component->sink.start_addr,
+		pr_info("reserved-memory {0x%llx-0x%llx}@0x%px\n", (u64)component->sink.start_addr,
 			(u64)component->sink.limit_addr, component->sink.vaddr);
 
 		child_node = of_get_child_by_name(node, "input_port");

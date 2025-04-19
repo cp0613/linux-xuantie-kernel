@@ -221,24 +221,24 @@ build_sink_config_info(struct xuantie_ntrace_component *component,
 {
 	memset(sink_config, 0, sizeof(struct xt_trace_sink_config_info));
 
-	if (TEST_SRAM_SINK) {
-		sink_config->component_type = TRCOMP_RAMSINK;
-		sink_config->type = TRACE_SRAM_SINK;        // configure to SMEM Sink
-		sink_config->ram_sink_stop_on_wrap = false; // the circular buffer gets full
-		sink_config->ram_sink_mem_format = 0;       // plain bytes
-		sink_config->ram_sink_start = 0;
-		sink_config->ram_sink_limit = 0x7fc;
-		sink_config->ram_sink_write_point = 0;
-	} else {
-		sink_config->component_type = TRCOMP_RAMSINK;
-		sink_config->type = TRACE_SMEM_SINK;        // configure to SMEM Sink
-		sink_config->ram_sink_stop_on_wrap = false; // the circular buffer gets full
-		sink_config->ram_sink_mem_format = 0;       // plain bytes
-		sink_config->ram_sink_start = component->sink.start_addr;
-		sink_config->ram_sink_limit = (component->sink.limit_addr & 0xffffff00) - 4;
-		component->sink.limit_addr = component->sink.limit_addr & 0xffffff00;
-		sink_config->ram_sink_write_point = component->sink.start_addr;
-	}
+#if TEST_SRAM_SINK
+	sink_config->component_type = TRCOMP_RAMSINK;
+	sink_config->type = TRACE_SRAM_SINK;        // configure to SMEM Sink
+	sink_config->ram_sink_stop_on_wrap = false; // the circular buffer gets full
+	sink_config->ram_sink_mem_format = 0;       // plain bytes
+	sink_config->ram_sink_start = 0;
+	sink_config->ram_sink_limit = 0x7fc;
+	sink_config->ram_sink_write_point = 0;
+#else
+	sink_config->component_type = TRCOMP_RAMSINK;
+	sink_config->type = TRACE_SMEM_SINK;        // configure to SMEM Sink
+	sink_config->ram_sink_stop_on_wrap = false; // the circular buffer gets full
+	sink_config->ram_sink_mem_format = 0;       // plain bytes
+	sink_config->ram_sink_start = component->sink.start_addr;
+	sink_config->ram_sink_limit = (component->sink.limit_addr & 0xffffff00) - 4;
+	component->sink.limit_addr = component->sink.limit_addr & 0xffffff00;
+	sink_config->ram_sink_write_point = component->sink.start_addr;
+#endif
 
 	////for pib sink
 	// sink_config->pib_sink_mode;
@@ -277,7 +277,7 @@ void xuantie_build_saved_config(struct xuantie_saved_conifg *config,
 static int trace_register_write(u64 addr, u32 value)
 {
 	iowrite32(value, (void __iomem *)(unsigned long)addr);
-#ifdef TEST_LOG_ON
+#if TEST_LOG_ON
 	pr_info("--->write 0x%llx with 0x%x\n", addr, value);
 #endif
 	return 0;
@@ -286,7 +286,7 @@ static int trace_register_write(u64 addr, u32 value)
 static int trace_register_read(u64 addr, u32 *value)
 {
 	*value = ioread32((void __iomem *)(unsigned long)addr);
-#ifdef TEST_LOG_ON
+#if TEST_LOG_ON
 	pr_info("--->read 0x%llx get 0x%x\n", addr, *value);
 #endif
 	return 0;
@@ -505,31 +505,31 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int flags)
 			component->sink_info.base_addr);
 		return;
 	}
-	if (TEST_SRAM_SINK) {
-		if (trace_write_point & 0x1) {
-			trace_data_section0_start = trace_write_point & 0xfffffffffffffffc;
-			trace_data_section0_size = 0x800 - trace_data_section0_start;
-			trace_data_section1_start = 0;
-			trace_data_section1_size = trace_data_section0_start;
-		} else {
-			trace_data_section0_start = component_sink->sink.start_addr;
-			trace_data_section0_size =
-				trace_write_point - component_sink->sink.start_addr;
-		}
+#if TEST_SRAM_SINK
+	if (trace_write_point & 0x1) {
+		trace_data_section0_start = trace_write_point & 0xfffffffffffffffc;
+		trace_data_section0_size = 0x800 - trace_data_section0_start;
+		trace_data_section1_start = 0;
+		trace_data_section1_size = trace_data_section0_start;
 	} else {
-		if (trace_write_point & 0x1) {
-			trace_data_section0_start = trace_write_point & 0xfffffffffffffffc;
-			trace_data_section0_size =
-				component_sink->sink.limit_addr - trace_data_section0_start;
-			trace_data_section1_start = component_sink->sink.start_addr;
-			trace_data_section1_size =
-				trace_data_section0_start - component_sink->sink.start_addr;
-		} else {
-			trace_data_section0_start = component_sink->sink.start_addr;
-			trace_data_section0_size =
-				trace_write_point - component_sink->sink.start_addr;
-		}
+		trace_data_section0_start = component_sink->sink.start_addr;
+		trace_data_section0_size =
+			trace_write_point - component_sink->sink.start_addr;
 	}
+#else
+	if (trace_write_point & 0x1) {
+		trace_data_section0_start = trace_write_point & 0xfffffffffffffffc;
+		trace_data_section0_size =
+			component_sink->sink.limit_addr - trace_data_section0_start;
+		trace_data_section1_start = component_sink->sink.start_addr;
+		trace_data_section1_size =
+			trace_data_section0_start - component_sink->sink.start_addr;
+	} else {
+		trace_data_section0_start = component_sink->sink.start_addr;
+		trace_data_section0_size =
+			trace_write_point - component_sink->sink.start_addr;
+	}
+#endif
 
 	// make start to offset
 	trace_data_section0_start = trace_data_section0_start - component_sink->sink.start_addr;
@@ -556,53 +556,53 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int flags)
 	buf->pos += sizeof(struct xuantie_saved_conifg);
 
 	/* Read Trace data. */
-	if (TEST_SRAM_SINK) {
-		int i = 0;
-		unsigned char trace_buf[0x600];
+#if TEST_SRAM_SINK
+	int i = 0;
+	unsigned char trace_buf[0x600];
 
-		if (trace_data_section0_size) {
-			if (xt_trace_read_data_from_sram_sink(component_sink->sink_info.base_addr,
-					trace_data_section0_start,  trace_data_section0_size,
-					trace_buf) < 0) {
-				pr_info("fail to read trace_data_section0_size 0x%x\n",
-					trace_data_section0_size);
-				return;
-			}
-		}
-		if (trace_data_section1_size) {
-			if (xt_trace_read_data_from_sram_sink(component_sink->sink_info.base_addr,
-					trace_data_section1_start,  trace_data_section1_size,
-					trace_buf+trace_data_section0_size) < 0) {
-				pr_info("fail to read trace_data_section0_size 0x%x\n",
-					trace_data_section0_size);
-				return;
-			}
-		}
-
-		pr_info("trace get data: ");
-		for (i = 0 ; i < (trace_data_section0_size + trace_data_section1_size); i++)
-			pr_info(" 0x%x", (int)trace_buf[i]);
-
-		/*Save Trace data to Perf.data. */
-		memcpy(buf->base + buf->pos, trace_buf,
-			trace_data_section0_size + trace_data_section1_size);
-		buf->pos += trace_data_section0_size + trace_data_section1_size;
-	} else {
-		if (trace_data_section0_size) {
-			memcpy(buf->base + buf->pos,
-			       component_sink->sink.vaddr +
-				       trace_data_section0_start,
-			       trace_data_section0_size);
-			buf->pos += trace_data_section0_size;
-		}
-		if (trace_data_section1_size) {
-			memcpy(buf->base + buf->pos,
-			       component_sink->sink.vaddr +
-				       trace_data_section1_start,
-			       trace_data_section1_size);
-			buf->pos += trace_data_section1_size;
+	if (trace_data_section0_size) {
+		if (xt_trace_read_data_from_sram_sink(component_sink->sink_info.base_addr,
+				trace_data_section0_start,  trace_data_section0_size,
+				trace_buf) < 0) {
+			pr_info("fail to read trace_data_section0_size 0x%x\n",
+				trace_data_section0_size);
+			return;
 		}
 	}
+	if (trace_data_section1_size) {
+		if (xt_trace_read_data_from_sram_sink(component_sink->sink_info.base_addr,
+				trace_data_section1_start,  trace_data_section1_size,
+				trace_buf+trace_data_section0_size) < 0) {
+			pr_info("fail to read trace_data_section0_size 0x%x\n",
+				trace_data_section0_size);
+			return;
+		}
+	}
+
+	pr_info("trace get data: ");
+	for (i = 0 ; i < (trace_data_section0_size + trace_data_section1_size); i++)
+		pr_info(" 0x%x", (int)trace_buf[i]);
+
+	/*Save Trace data to Perf.data. */
+	memcpy(buf->base + buf->pos, trace_buf,
+		trace_data_section0_size + trace_data_section1_size);
+	buf->pos += trace_data_section0_size + trace_data_section1_size;
+#else
+	if (trace_data_section0_size) {
+		memcpy(buf->base + buf->pos,
+				component_sink->sink.vaddr +
+					trace_data_section0_start,
+				trace_data_section0_size);
+		buf->pos += trace_data_section0_size;
+	}
+	if (trace_data_section1_size) {
+		memcpy(buf->base + buf->pos,
+				component_sink->sink.vaddr +
+					trace_data_section1_start,
+				trace_data_section1_size);
+		buf->pos += trace_data_section1_size;
+	}
+#endif
 
 	perf_aux_output_end(&xuantie_ntrace_pmu.handle, trace_data_section0_size +
 		trace_data_section1_size + sizeof(struct xuantie_saved_conifg));
