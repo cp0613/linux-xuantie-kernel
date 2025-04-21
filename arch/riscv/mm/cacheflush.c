@@ -102,6 +102,9 @@ EXPORT_SYMBOL_GPL(riscv_cbom_block_size);
 unsigned int riscv_cboz_block_size;
 EXPORT_SYMBOL_GPL(riscv_cboz_block_size);
 
+unsigned int riscv_cbop_block_size;
+EXPORT_SYMBOL_GPL(riscv_cbop_block_size);
+
 static void __init cbo_get_block_size(struct device_node *node,
 				      const char *name, u32 *block_size,
 				      unsigned long *first_hartid)
@@ -126,8 +129,8 @@ static void __init cbo_get_block_size(struct device_node *node,
 
 void __init riscv_init_cbo_blocksizes(void)
 {
-	unsigned long cbom_hartid, cboz_hartid;
-	u32 cbom_block_size = 0, cboz_block_size = 0;
+	unsigned long cbom_hartid, cboz_hartid, cbop_hartid;
+	u32 cbom_block_size = 0, cboz_block_size = 0, cbop_block_size = 0;
 	struct device_node *node;
 
 	for_each_of_cpu_node(node) {
@@ -136,6 +139,8 @@ void __init riscv_init_cbo_blocksizes(void)
 				   &cbom_block_size, &cbom_hartid);
 		cbo_get_block_size(node, "riscv,cboz-block-size",
 				   &cboz_block_size, &cboz_hartid);
+		cbo_get_block_size(node, "riscv,cbop-block-size",
+				   &cbop_block_size, &cbop_hartid);
 	}
 
 	if (cbom_block_size)
@@ -143,4 +148,7 @@ void __init riscv_init_cbo_blocksizes(void)
 
 	if (cboz_block_size)
 		riscv_cboz_block_size = cboz_block_size;
+
+	if (cbop_block_size)
+		riscv_cbop_block_size = cbop_block_size;
 }

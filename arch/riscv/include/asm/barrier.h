@@ -16,11 +16,6 @@
 #include <asm/insn-def.h>
 #include <asm/hwcap.h>
 
-#define nop()		__asm__ __volatile__ ("nop")
-#define __nops(n)	".rept	" #n "\nnop\n.endr\n"
-#define nops(n)		__asm__ __volatile__ (__nops(n))
-
-
 /* These barriers need to enforce ordering on both devices or memory. */
 #define mb()		RISCV_FENCE(iorw,iorw)
 #define rmb()		RISCV_FENCE(ir,ir)
