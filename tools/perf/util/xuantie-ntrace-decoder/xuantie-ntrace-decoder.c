@@ -882,6 +882,18 @@ xt_trace_get_start_and_full_addr(struct xt_trace_program_flow_node *node,
 	struct perf_session *session, struct auxtrace_buffer *buffer)
 {
 	bool unknown_tcode = false;
+	static enum rv_mmu_type mmu_mode = MMU_UNKNOWN;
+	static int rv_svmode_int = 39;
+
+	if (mmu_mode == MMU_UNKNOWN) {
+		mmu_mode = parse_mmu_mode();
+		if (mmu_mode == MMU_SV48)
+			rv_svmode_int = 48;
+		else if (mmu_mode == MMU_SV57)
+			rv_svmode_int = 57;
+		else
+			rv_svmode_int = 39; //default
+	}
 
 	switch (node->msg.tcode) {
 	case TCODE_DIRECTBRANCH:
@@ -933,7 +945,7 @@ xt_trace_get_start_and_full_addr(struct xt_trace_program_flow_node *node,
 		break;
 	}
 
-	node->full_addr = sign_extend64(node->full_addr, 39);
+	node->full_addr = sign_extend64(node->full_addr, rv_svmode_int);
 	if (!unknown_tcode)
 		xt_trace_get_dso_and_symbol_for_node(node, session, buffer);
 
