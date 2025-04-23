@@ -20,6 +20,13 @@ enum GET_AN_INSN_STATE {
 	GET_AN_INSN_END = 2,
 };
 
+enum rv_mmu_type {
+	MMU_SV39,
+	MMU_SV48,
+	MMU_SV57,
+	MMU_UNKNOWN
+};
+
 // used for i-cnt and hist
 struct xt_trace_address_range {
 	uint64_t start_addr;
@@ -69,14 +76,75 @@ static inline unsigned int riscv_insn_length(uint8_t insn)
 	return 2;
 }
 
+static enum rv_mmu_type parse_mmu_mode(void)
+{
+	FILE *fp;
+	char line[256];
+	const char *target = "mmu";
+	const char *delimiter = ":";
+	char *key, *value;
+	enum rv_mmu_type mmu_mode = MMU_UNKNOWN;
+
+	fp = fopen("/proc/cpuinfo", "r");
+	if (!fp) {
+		perror("fopen");
+		return mmu_mode;
+	}
+
+	while (fgets(line, sizeof(line), fp)) {
+		if (strstr(line, target)) {
+			key = strtok(line, delimiter);
+			value = strtok(NULL, delimiter);
+			if (key && value) {
+				key = strtok(key, " \t\n");
+				value = strtok(value, " \t\n");
+				if (strcmp(key, target) == 0) {
+					if (strcmp(value, "sv39") == 0)
+						mmu_mode = MMU_SV39;
+					else if (strcmp(value, "sv48") == 0)
+						mmu_mode = MMU_SV48;
+					else if (strcmp(value, "sv57") == 0)
+						mmu_mode = MMU_SV57;
+					else
+						mmu_mode = MMU_UNKNOWN;
+					break;
+				}
+			}
+		}
+	}
+
+	fclose(fp);
+
+	return mmu_mode;
+}
+/* https://www.kernel.org/doc/html/next/riscv/vm-layout.html */
 static u8 riscv_get_cpu_mode(u64 vaddr)
 {
-	if (vaddr > 0x3fffffffff) //SV39:256G
-		return PERF_RECORD_MISC_KERNEL;
+	static enum rv_mmu_type mmu_mode = MMU_UNKNOWN;
+
+	if (mmu_mode == MMU_UNKNOWN)
+		mmu_mode = parse_mmu_mode();
+
+	switch (mmu_mode) {
+	case MMU_SV39:
+		if (vaddr > 0x3fffffffff) //SV39:256G
+			return PERF_RECORD_MISC_KERNEL;
+		break;
+	case MMU_SV48:
+		if (vaddr > 0x7fffffffffff) //SV48:128T
+			return PERF_RECORD_MISC_KERNEL;
+		break;
+	case MMU_SV57:
+		if (vaddr > 0xffffffffffffff) //SV57:64P
+			return PERF_RECORD_MISC_KERNEL;
+		break;
+	case MMU_UNKNOWN:
+	default:
+		printf("Unknown MMU Mode: %d\n", mmu_mode);
+		break;
+	}
 
 	return PERF_RECORD_MISC_USER;
-
-	//FIXME: other mode ???
 }
 
 #define FAILED_TO_GET_AN_INSN 0xabcddeadbeef1234
