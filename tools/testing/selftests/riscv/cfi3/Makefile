@@ -5,5 +5,12 @@ TEST_GEN_PROGS := riscv_cfi_test
 
 include ../../lib.mk
 
+CFI_CC=$(CC)
+CFI_CC := $(filter-out -march=%,$(CFI_CC))
+CFI_CC := $(filter-out -mabi=%,$(CFI_CC))
+CFI_CC += -mcpu=zhijiang -fcf-protection=return -fcf-protection=branch
+$(info =========CFI_CC:$(CFI_CC)================)
+
 $(OUTPUT)/riscv_cfi_test: riscv_cfi_test.c
-	$(CC) -static -o$@ $(CFLAGS) $(LDFLAGS) $^
+	$(CFI_CC) -static -o$@ $(CFLAGS) $(LDFLAGS) $^
+	./modify_lp_func_label_hash.sh $(OUTPUT)/riscv_cfi_test "test_func0"
