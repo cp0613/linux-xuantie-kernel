@@ -2,6 +2,7 @@ CFLAGS += -I$(top_srcdir)/tools/include
 CFLAGS += -I$(top_srcdir)/include/uapi
 
 TEST_GEN_PROGS := riscv_cfi_test
+TEST_PROGS := run_cfi.sh
 
 include ../../lib.mk
 
