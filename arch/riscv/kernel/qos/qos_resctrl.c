@@ -499,7 +499,7 @@ int resctrl_arch_update_one(struct rdt_resource *r, struct rdt_domain *d,
 {
 	struct cbqri_resctrl_res *res;
 	struct cbqri_resctrl_dom *dom;
-	struct cbqri_config cfg;
+	struct cbqri_config cfg = {0};
 	int err = 0;
 
 	res = container_of(r, struct cbqri_resctrl_res, resctrl_res);
@@ -955,8 +955,8 @@ static int qos_resctrl_add_controller_domain(struct cbqri_controller *ctrl, int 
 {
 	struct rdt_domain *domain, *mon_domain = NULL;
 	struct cbqri_resctrl_res *cbqri_res = NULL;
-	struct cbqri_resctrl_dom *hw_dom_to_free;
-	struct rdt_resource *res;
+	struct cbqri_resctrl_dom *hw_dom_to_free = NULL;
+	struct rdt_resource *res = NULL;
 	int internal_id = *id;
 	int err;
 

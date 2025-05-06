@@ -465,8 +465,8 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int flags)
 	u64 trace_data_section1_start = 0;
 	u32 trace_data_section1_size = 0;
 	struct xuantie_ntrace_component *component;
-	struct xuantie_ntrace_component *component_sink;
-	struct xuantie_ntrace_component *component_encoder;
+	struct xuantie_ntrace_component *component_sink = NULL;
+	struct xuantie_ntrace_component *component_encoder = NULL;
 	struct xuantie_saved_conifg config;
 	struct xuantie_ntrace_aux_buf *buf;
 

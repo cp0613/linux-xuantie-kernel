@@ -205,7 +205,7 @@ static int riscv_cfi_get(struct task_struct *target,
 			const struct user_regset *regset,
 			struct membuf to)
 {
-	struct user_cfi_state user_cfi;
+	struct user_cfi_state user_cfi = {0};
 	struct pt_regs *regs;
 
 	regs = task_pt_regs(target);
