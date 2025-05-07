@@ -18,6 +18,7 @@
 
 LIST_HEAD(xuantie_ntrace_controllers);
 static struct xuantie_ntrace_pmu xuantie_ntrace_pmu;
+static bool trace_componnet_detected;
 
 // Function Declaration
 static void xuantie_ntrace_event_start(struct perf_event *event, int flags);
@@ -306,6 +307,9 @@ static int xuantie_ntrace_event_add(struct perf_event *event, int flags)
 {
 	struct xuantie_ntrace_component *component;
 	struct xuantie_ntrace_aux_buf *buf;
+	bool encoder_find = false;
+	bool funnel_find = false;
+	bool sink_find = false;
 
 	// pr_info("%s:%d flags=%d\n", __func__, __LINE__, flags);
 
@@ -315,39 +319,43 @@ static int xuantie_ntrace_event_add(struct perf_event *event, int flags)
 						 trace_register_read, NULL);
 
 	/* Detect all Trace Components.  */
-	list_for_each_entry(component, &xuantie_ntrace_controllers, list) {
-		if (component->type == XUANTIE_NTRACE_ENCODER) {
-			xt_init_trace_encoder_control_info(
-				&component->encoder_info, component->reg_base);
-			if (xt_trace_detect_trace_encoder(
-				    &component->encoder_info)) {
-				pr_info("Failed to detect trace encoder with base addr 0x%llx.\n",
-					(u64)component->encoder_info.base_addr);
+	if (trace_componnet_detected == false) {
+		list_for_each_entry(component, &xuantie_ntrace_controllers, list) {
+			if (component->type == XUANTIE_NTRACE_ENCODER) {
+				xt_init_trace_encoder_control_info(&component->encoder_info, component->reg_base);
+				if (xt_trace_detect_trace_encoder(&component->encoder_info)) {
+					pr_info("Failed to detect trace encoder with base addr 0x%llx.\n",
+						component->encoder_info.base_addr);
+					return -1;
+				}
+			} else if (component->type == XUANTIE_NTRACE_FUNNEL) {
+				xt_init_trace_funnel_control_info(&component->funnel_info, component->reg_base);
+				if (xt_trace_detect_trace_funnel(&component->funnel_info)) {
+					pr_info("Failed to detect trace funnel with base addr 0x%llx.\n",
+						component->funnel_info.base_addr);
+					return -1;
+				}
+			} else if (component->type == XUANTIE_NTRACE_SINK_SMEM) {
+				xt_init_trace_sink_control_info(&component->sink_info, component->reg_base);
+				if (xt_trace_detect_trace_sink(&component->sink_info)) {
+					pr_info("Failed to detect trace sink with base addr 0x%llx.\n",
+						component->sink_info.base_addr);
+					return -1;
+				}
+			} else {
+				pr_info("Unknown NTrace Component with type %d, base addr 0x%llx.\n",
+					component->type, component->reg_base);
 				return -1;
 			}
-		} else if (component->type == XUANTIE_NTRACE_FUNNEL) {
-			xt_init_trace_funnel_control_info(
-				&component->funnel_info, component->reg_base);
-			if (xt_trace_detect_trace_funnel(
-				    &component->funnel_info)) {
-				pr_info("Failed to detect trace funnel with base addr 0x%llx.\n",
-					(u64)component->funnel_info.base_addr);
-				return -1;
-			}
-		} else if (component->type == XUANTIE_NTRACE_SINK_SMEM) {
-			xt_init_trace_sink_control_info(&component->sink_info,
-							component->reg_base);
-			if (xt_trace_detect_trace_sink(&component->sink_info)) {
-				pr_info("Failed to detect trace sink with base addr 0x%llx.\n",
-					(u64)component->sink_info.base_addr);
-				return -1;
-			}
-		} else {
-			pr_info("Unknown NTrace Component with type %d, base addr 0x%llx.\n",
-				component->type, (u64)component->reg_base);
+		}
+		if (!encoder_find || !funnel_find || !sink_find) {
+			pr_info("There is no encoder or funnel or sink find, please check DTS file.\n");
 			return -1;
 		}
 	}
+
+	/* Mark all components have been detected.  */
+	trace_componnet_detected = true;
 
 	/* Config components. */
 	list_for_each_entry(component, &xuantie_ntrace_controllers, list) {
@@ -782,6 +790,8 @@ static __init int xuantie_ntrace_init(void)
 				component->out[j]->base_addr);
 		}
 	}
+
+	trace_componnet_detected = false;
 
 	xuantie_ntrace_pmu.pmu.module = THIS_MODULE,
 	xuantie_ntrace_pmu.pmu.capabilities = PERF_PMU_CAP_EXCLUSIVE |

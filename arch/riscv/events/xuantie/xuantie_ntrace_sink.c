@@ -27,6 +27,8 @@ static int __init xuantie_ntrace_sink_init(void)
 	u32 reg[4];
 	int port_nr;
 	int ret;
+	static char *default_work_mode = "circulating buffer";
+	static char *default_format = "original";
 
 	for_each_matching_node(node, xuantie_ntrace_sink_of_match) {
 		if (!of_device_is_available(node)) {
@@ -55,20 +57,14 @@ static int __init xuantie_ntrace_sink_init(void)
 
 		ret = of_property_read_string(node, "working_mode",
 					      &component->sink.working_mode);
-		if (ret) {
-			pr_err("Failed to read 'working_mode'\n");
-			of_node_put(node);
-			return ret;
-		}
+		if (ret)
+			component->sink.working_mode = default_work_mode;
 		pr_info("working_mode=%s\n", component->sink.working_mode);
 
 		ret = of_property_read_string(node, "format",
 					      &component->sink.format);
-		if (ret) {
-			pr_err("Failed to read 'format'\n");
-			of_node_put(node);
-			return ret;
-		}
+		if (ret)
+			component->sink.format = default_format;
 		pr_info("format=%s\n", component->sink.format);
 
 		child_node = of_parse_phandle(node, "memory-region", 0);
