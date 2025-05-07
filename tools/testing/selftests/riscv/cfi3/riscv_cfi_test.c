@@ -128,11 +128,9 @@ static void sigsegv_handler(int signum, siginfo_t *si, void *uc)
 	prctl(PR_SET_INDIR_BR_LP_STATUS, 0, 0, 0, 0);
 	prctl(PR_SET_SHADOW_STACK_STATUS, 0, 0, 0, 0);
 
-	struct ucontext *ctx = (struct ucontext *) uc;
-
 	if (si->si_code == SEGV_CPERR) {
 		printf("Control flow violation happened somewhere\n");
-		printf("pc where violation happened %lx\n", ctx->uc_mcontext.gregs[0]);
+		printf("pc where violation happened %lx\n", si->si_addr);
 
 		if (g_ctx.test_type == TEST_TYPE_LP_ENABLE ||
 		    g_ctx.test_type == TEST_TYPE_SS_ENABLE) {
