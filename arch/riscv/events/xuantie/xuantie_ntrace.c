@@ -328,6 +328,7 @@ static int xuantie_ntrace_event_add(struct perf_event *event, int flags)
 						component->encoder_info.base_addr);
 					return -1;
 				}
+				encoder_find = true;
 			} else if (component->type == XUANTIE_NTRACE_FUNNEL) {
 				xt_init_trace_funnel_control_info(&component->funnel_info, component->reg_base);
 				if (xt_trace_detect_trace_funnel(&component->funnel_info)) {
@@ -335,6 +336,7 @@ static int xuantie_ntrace_event_add(struct perf_event *event, int flags)
 						component->funnel_info.base_addr);
 					return -1;
 				}
+				funnel_find = true;
 			} else if (component->type == XUANTIE_NTRACE_SINK_SMEM) {
 				xt_init_trace_sink_control_info(&component->sink_info, component->reg_base);
 				if (xt_trace_detect_trace_sink(&component->sink_info)) {
@@ -342,6 +344,7 @@ static int xuantie_ntrace_event_add(struct perf_event *event, int flags)
 						component->sink_info.base_addr);
 					return -1;
 				}
+				sink_find = true;
 			} else {
 				pr_info("Unknown NTrace Component with type %d, base addr 0x%llx.\n",
 					component->type, component->reg_base);
