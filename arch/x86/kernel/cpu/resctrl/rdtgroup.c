@@ -33,7 +33,9 @@
 #include "internal.h"
 
 DEFINE_STATIC_KEY_FALSE(rdt_enable_key);
+
 DEFINE_STATIC_KEY_FALSE(rdt_mon_enable_key);
+
 DEFINE_STATIC_KEY_FALSE(rdt_alloc_enable_key);
 static struct kernfs_root *rdt_root;
 struct rdtgroup rdtgroup_default;
@@ -4055,4 +4057,46 @@ void rdtgroup_exit(void)
 	 * Do not remove the sysfs mount point added by rdtgroup_init() so that
 	 * it can be used to umount resctrl.
 	 */
+}
+
+/*
+ * Arch-specific functions exported for use by fs/resctrl/.
+ */
+void resctrl_arch_sync_cpu_closid_rmid(void *info)
+{
+	struct rdtgroup *r = info;
+
+	if (r) {
+		this_cpu_write(pqr_state.default_closid, r->closid);
+		this_cpu_write(pqr_state.default_rmid, r->mon.rmid);
+	}
+
+	/*
+	 * We cannot unconditionally write the MSR because the current
+	 * executing task might have its own closid selected. Just reuse
+	 * the context switch code.
+	 */
+	resctrl_arch_sched_in(current);
+}
+
+void resctrl_arch_mon_event_config_read(void *_config_info)
+{
+	struct mon_config_info *config_info = _config_info;
+	unsigned int index;
+	u64 msrval;
+
+	index = mon_event_config_index_get(config_info->evtid);
+	if (index == INVALID_CONFIG_INDEX) {
+		pr_warn_once("Invalid event id %d\n", config_info->evtid);
+		return;
+	}
+	rdmsrl(MSR_IA32_EVT_CFG_BASE + index, msrval);
+
+	/* Report only the valid event configuration bits */
+	config_info->mon_config = msrval & MAX_EVT_CONFIG_BITS;
+}
+
+void resctrl_arch_reset_all_ctrls(struct rdt_resource *r)
+{
+	reset_all_ctrls(r);
 }
