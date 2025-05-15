@@ -2309,6 +2309,11 @@ int resctrl_arch_set_cdp_enabled(enum resctrl_res_level l, bool enable)
 	return 0;
 }
 
+bool resctrl_arch_get_cdp_enabled(enum resctrl_res_level l)
+{
+	return rdt_resources_all[l].cdp_enabled;
+}
+
 static void cdp_disable_all(void)
 {
 	if (resctrl_arch_get_cdp_enabled(RDT_RESOURCE_L3))
