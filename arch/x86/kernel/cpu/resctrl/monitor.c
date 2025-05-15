@@ -181,12 +181,11 @@ static struct arch_mbm_state *get_arch_mbm_state(struct rdt_hw_domain *hw_dom,
 		return &hw_dom->arch_mbm_total[rmid];
 	case QOS_L3_MBM_LOCAL_EVENT_ID:
 		return &hw_dom->arch_mbm_local[rmid];
+	default:
+		/* Never expect to get here */
+		WARN_ON_ONCE(1);
+		return NULL;
 	}
-
-	/* Never expect to get here */
-	WARN_ON_ONCE(1);
-
-	return NULL;
 }
 
 void resctrl_arch_reset_rmid(struct rdt_resource *r, struct rdt_domain *d,
