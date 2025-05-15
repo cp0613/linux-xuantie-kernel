@@ -16,16 +16,12 @@
  */
 
 #include <linux/module.h>
+#include <linux/cpu.h>
 #include <linux/resctrl.h>
-#include <linux/sizes.h>
-#include <linux/slab.h>
 
 #include <asm/cpu_device_id.h>
 
 #include "internal.h"
-
-#define CREATE_TRACE_POINTS
-#include "monitor_trace.h"
 
 struct rmid_entry {
 	u32				rmid;
@@ -65,21 +61,10 @@ bool rdt_mon_capable;
  */
 unsigned int rdt_mon_features;
 
-/*
- * This is the threshold cache occupancy in bytes at which we will consider an
- * RMID available for re-allocation.
- */
-unsigned int resctrl_rmid_realloc_threshold;
-
-/*
- * This is the maximum value for the reallocation threshold, in bytes.
- */
-unsigned int resctrl_rmid_realloc_limit;
-
 #define CF(cf)	((unsigned long)(1048576 * (cf) + 0.5))
 
 /*
- * The correction factor table is documented in Documentation/arch/x86/resctrl.rst.
+ * The correction factor table is documented in Documentation/filesystems/resctrl.rst.
  * If rmid > rmid threshold, MBM total and local values should be multiplied
  * by the correction factor.
  *
@@ -128,6 +113,7 @@ static const struct mbm_correction_factor_table {
 };
 
 static u32 mbm_cf_rmidthreshold __read_mostly = UINT_MAX;
+
 static u64 mbm_cf __read_mostly;
 
 static inline u64 get_corrected_mbm_count(u32 rmid, unsigned long val)
@@ -753,6 +739,10 @@ static void l3_mon_evt_init(struct rdt_resource *r)
 		list_add_tail(&mbm_total_event.list, &r->evt_list);
 	if (is_mbm_local_enabled())
 		list_add_tail(&mbm_local_event.list, &r->evt_list);
+}
+
+void arch_mon_domain_online(struct rdt_resource *r, struct rdt_domain *d)
+{
 }
 
 int __init rdt_get_mon_l3_config(struct rdt_resource *r)

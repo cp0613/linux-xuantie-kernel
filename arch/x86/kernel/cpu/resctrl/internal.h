@@ -3,24 +3,21 @@
 #define _ASM_X86_RESCTRL_INTERNAL_H
 
 #include <linux/resctrl.h>
-#include <linux/sched.h>
-#include <linux/kernfs.h>
-#include <linux/fs_context.h>
-#include <linux/jump_label.h>
-#include <linux/tick.h>
 
 #define L3_QOS_CDP_ENABLE		0x01ULL
 
 #define L2_QOS_CDP_ENABLE		0x01ULL
 
-#define CQM_LIMBOCHECK_INTERVAL	1000
-
 #define MBM_CNTR_WIDTH_BASE		24
+
 #define MBA_IS_LINEAR			0x4
+
 #define MBM_CNTR_WIDTH_OFFSET_AMD	20
 
 #define RMID_VAL_ERROR			BIT_ULL(63)
+
 #define RMID_VAL_UNAVAIL		BIT_ULL(62)
+
 /*
  * With the above fields in use 62 bits remain in MSR_IA32_QM_CTR for
  * data to be returned. The counter width is discovered from the hardware
@@ -464,7 +461,7 @@ static inline struct rdt_resource *resctrl_inc(struct rdt_resource *res)
 	for_each_rdt_resource(r)					      \
 		if (r->mon_capable)
 
-void arch_mon_domain_online(struct rdt_resource *r, struct rdt_mon_domain *d);
+void arch_mon_domain_online(struct rdt_resource *r, struct rdt_domain *d);
 
 /* CPUID.(EAX=10H, ECX=ResID=1).EAX */
 union cpuid_0x10_1_eax {
@@ -489,11 +486,6 @@ union cpuid_0x10_x_edx {
 	} split;
 	unsigned int full;
 };
-
-void rdt_last_cmd_clear(void);
-void rdt_last_cmd_puts(const char *s);
-__printf(1, 2)
-void rdt_last_cmd_printf(const char *fmt, ...);
 
 void rdt_ctrl_update(void *arg);
 struct rdtgroup *rdtgroup_kn_lock_live(struct kernfs_node *kn);
