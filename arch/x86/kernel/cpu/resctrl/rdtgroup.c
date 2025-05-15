@@ -3725,7 +3725,7 @@ static void rdtgroup_destroy_root(void)
 	rdtgroup_default.kn = NULL;
 }
 
-static void __init rdtgroup_setup_default(void)
+static void rdtgroup_setup_default(void)
 {
 	mutex_lock(&rdtgroup_mutex);
 
@@ -3863,7 +3863,7 @@ int resctrl_online_domain(struct rdt_resource *r, struct rdt_domain *d)
  *
  * Return: 0 on success or -errno
  */
-int __init rdtgroup_init(void)
+int rdtgroup_init(void)
 {
 	int ret = 0;
 
@@ -3915,7 +3915,7 @@ cleanup_root:
 	return ret;
 }
 
-static bool __exit resctrl_online_domains_exist(void)
+static bool resctrl_online_domains_exist(void)
 {
 	struct rdt_resource *r;
 
@@ -3953,7 +3953,7 @@ static bool __exit resctrl_online_domains_exist(void)
  * resctrl_arch_get_resource() must continue to return struct rdt_resources
  * with the correct rid field to ensure the filesystem can be unmounted.
  */
-void __exit rdtgroup_exit(void)
+void rdtgroup_exit(void)
 {
 	cpus_read_lock();
 	WARN_ON_ONCE(resctrl_online_domains_exist());
