@@ -24,6 +24,9 @@
 
 #include "internal.h"
 
+#define CREATE_TRACE_POINTS
+#include "monitor_trace.h"
+
 struct rmid_entry {
 	u32				rmid;
 	int				busy;
