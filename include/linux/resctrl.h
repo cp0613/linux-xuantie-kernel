@@ -5,6 +5,17 @@
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/pid.h>
+#include <linux/resctrl_types.h>
+
+#ifdef CONFIG_ARCH_HAS_CPU_RESCTRL
+#include <asm/resctrl.h>
+#endif
+
+/* CLOSID, RMID value used by the default control group */
+#define RESCTRL_RESERVED_CLOSID		0
+#define RESCTRL_RESERVED_RMID		0
+
+#define RESCTRL_PICK_ANY_CPU		-1
 
 #ifdef CONFIG_PROC_CPU_RESCTRL
 
@@ -31,19 +42,6 @@ enum resctrl_conf_type {
 };
 
 #define CDP_NUM_TYPES	(CDP_DATA + 1)
-
-/*
- * Event IDs, the values match those used to program IA32_QM_EVTSEL before
- * reading IA32_QM_CTR on RDT systems.
- */
-enum resctrl_event_id {
-	QOS_L3_OCCUP_EVENT_ID		= 0x01,
-	QOS_L3_MBM_TOTAL_EVENT_ID	= 0x02,
-	QOS_L3_MBM_LOCAL_EVENT_ID	= 0x03,
-
-	/* Must be the last */
-	QOS_NUM_EVENTS,
-};
 
 /**
  * struct resctrl_staged_config - parsed configuration to be applied
