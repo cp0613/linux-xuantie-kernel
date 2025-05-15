@@ -287,8 +287,8 @@ extern struct list_head rdt_all_groups;
 
 extern int max_name_width, max_data_width;
 
-int __init rdtgroup_init(void);
-void __exit rdtgroup_exit(void);
+int rdtgroup_init(void);
+void rdtgroup_exit(void);
 
 /**
  * struct rftype - describe each file in the resctrl file system
@@ -562,7 +562,7 @@ void closid_free(int closid);
 int alloc_rmid(void);
 void free_rmid(u32 rmid);
 int rdt_get_mon_l3_config(struct rdt_resource *r);
-bool __init rdt_cpu_has(int flag);
+bool rdt_cpu_has(int flag);
 void mon_event_count(void *info);
 int rdtgroup_mondata_show(struct seq_file *m, void *arg);
 void mon_event_read(struct rmid_read *rr, struct rdt_resource *r,
