@@ -15,3 +15,4 @@ $(info =========CFI_CC:$(CFI_CC)================)
 $(OUTPUT)/riscv_cfi_test: riscv_cfi_test.c
 	$(CFI_CC) -static -o$@ $(CFLAGS) $(LDFLAGS) $^
 	./modify_lp_func_label_hash.sh $(OUTPUT)/riscv_cfi_test "test_func0"
+	./modify_ss_sspush.sh $(OUTPUT)/riscv_cfi_test "sigsegv_handler"
