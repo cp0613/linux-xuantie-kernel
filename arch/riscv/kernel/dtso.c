@@ -33,7 +33,7 @@ int dtso_set_memory_consistency_model(unsigned long arg)
 		return 0;
 
 	/* Enabling TSO only works if DTSO is available. */
-	if (new_model == PR_MEMORY_CONSISTENCY_MODEL_RISCV_TSO && !has_dtso())
+	if (new_model == RISCV_MEMORY_CONSISTENCY_MODEL_TSO && !has_dtso())
 		return -EINVAL;
 
 	/* Switching TSO->WMO is not allowed. */

@@ -629,16 +629,16 @@ TRACE_CONTROL_LIB_API int32_t
 xt_trace_funnel_close(struct xt_trace_funnel_control_info *funnel_info);
 
 // Config
-TRACE_CONTROL_LIB_API uint32_t
+TRACE_CONTROL_LIB_API int32_t
 xt_trace_sink_config(struct xt_trace_sink_control_info *sink_info,
 		     struct xt_trace_sink_config_info *sink_config);
-TRACE_CONTROL_LIB_API uint32_t
+TRACE_CONTROL_LIB_API int32_t
 xt_trace_funnel_config(struct xt_trace_funnel_control_info *funnel_info,
 		       struct xt_trace_funnel_config_info *funel_config);
-TRACE_CONTROL_LIB_API uint32_t
+TRACE_CONTROL_LIB_API int32_t
 xt_trace_encoder_config(struct xt_trace_encoder_control_info *encoder_info,
 			struct xt_trace_encoder_config_info *encoder_config);
-TRACE_CONTROL_LIB_API uint32_t xt_trace_filter_config(
+TRACE_CONTROL_LIB_API int32_t xt_trace_filter_config(
 	struct xt_trace_encoder_control_info *encoder_info,
 	struct xt_trace_encoder_filter_config_info *filter_config);
 
@@ -659,8 +659,8 @@ TRACE_CONTROL_LIB_API int32_t xt_trace_register_write(uint64_t addr, uint32_t va
 TRACE_CONTROL_LIB_API int32_t xt_trace_register_read(uint64_t addr, uint32_t *value);
 TRACE_CONTROL_LIB_API int32_t xt_trace_memory_read(uint64_t addr, uint8_t *buf, uint32_t size);
 TRACE_CONTROL_LIB_API int32_t enable_trace_component(uint64_t base_addr);
-TRACE_CONTROL_LIB_API uint32_t primary_enable_trace_component(uint64_t base_addr);
-TRACE_CONTROL_LIB_API uint32_t reset_trace_component(uint64_t base_addr);
-TRACE_CONTROL_LIB_API uint32_t xt_trace_register_readafterwrite(uint64_t reg_addr,
+TRACE_CONTROL_LIB_API int32_t primary_enable_trace_component(uint64_t base_addr);
+TRACE_CONTROL_LIB_API int32_t reset_trace_component(uint64_t base_addr);
+TRACE_CONTROL_LIB_API int32_t xt_trace_register_readafterwrite(uint64_t reg_addr,
 						 uint32_t value);
 TRACE_CONTROL_LIB_API int32_t xt_trace_msgout(const char *str);

@@ -18,12 +18,12 @@ xt_trace_add_insn_filter(struct xt_trace_encoder_control_info *encoder_info,
  * return 0, Success
  * return 1, Some configurations do not meet expectation(bits error)
  */
-TRACE_CONTROL_LIB_API uint32_t
+TRACE_CONTROL_LIB_API int32_t
 xt_trace_sink_config(struct xt_trace_sink_control_info *sink_info,
 		     struct xt_trace_sink_config_info *config_info)
 {
-	uint32_t tr_sink_control = 0;
-	uint32_t read_value_tmp = 0;
+	int32_t tr_sink_control = 0;
+	int32_t read_value_tmp = 0;
 	char str[256] = { '\n' };
 
 	if (sink_info->comp_type != config_info->component_type) {
@@ -446,13 +446,13 @@ config_failed:
  * return 0, Success
  * return 1, Some configurations do not meet expectation(bits error)
  */
-uint32_t
+int32_t
 xt_trace_funnel_config(struct xt_trace_funnel_control_info *funnel_info,
 		       struct xt_trace_funnel_config_info *config_info)
 {
 	char str[256] = { '\0' };
-	uint32_t tr_funnel_control = 0;
-	uint32_t read_value_tmp = 0;
+	int32_t tr_funnel_control = 0;
+	int32_t read_value_tmp = 0;
 
 	if (funnel_info->has_detected) {
 		// FIXME: input count means ???
@@ -513,12 +513,12 @@ xt_trace_funnel_config(struct xt_trace_funnel_control_info *funnel_info,
  * return 0, Success
  * return 1, Some configurations do not meet expectation(bits error)
  */
-uint32_t
+int32_t
 xt_trace_encoder_config(struct xt_trace_encoder_control_info *encoder_info,
 			struct xt_trace_encoder_config_info *config_info)
 {
 	char str[256] = { '\0' };
-	uint32_t tr_encoder_control = 0;
+	int32_t tr_encoder_control = 0;
 	uint32_t tr_te_inst_features = 0;
 	uint32_t read_value_tmp = 0;
 
@@ -1114,7 +1114,7 @@ xt_trace_encoder_config(struct xt_trace_encoder_control_info *encoder_info,
 
 	// config timestamp
 	if (config_info->timestamp_enable) {
-		uint32_t tr_ts_control = 0;
+		int32_t tr_ts_control = 0;
 		// enable timestamp component
 		tr_ts_control = primary_enable_trace_component(
 			encoder_info->base_addr + OFFSET_TRTSCONTROL);
@@ -1172,7 +1172,7 @@ config_failed:
  * return 0, Success
  * return 1, Some configurations do not meet expectation(bits error)
  */
-uint32_t
+int32_t
 xt_trace_filter_config(struct xt_trace_encoder_control_info *encoder_info,
 		       struct xt_trace_encoder_filter_config_info *config_info)
 {
@@ -1820,7 +1820,7 @@ xt_trace_filter_config(struct xt_trace_encoder_control_info *encoder_info,
 	}
 	// config trTeFilteriMatchData
 	if (config_info->filter_match_dtype ||
-	    config_info->filter_match_dtype) {
+	    config_info->filter_match_dsize) {
 		uint32_t tr_te_filter_i_match_data = 0;
 
 		tr_te_filter_i_match_data =

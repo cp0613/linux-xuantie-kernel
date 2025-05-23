@@ -129,7 +129,7 @@ int32_t enable_trace_component(uint64_t base_addr)
  * return 0, Some implementations do not meet expectation(bits error)
  */
 
-uint32_t primary_enable_trace_component(uint64_t base_addr)
+int32_t primary_enable_trace_component(uint64_t base_addr)
 {
 	uint32_t i;
 	uint32_t tr_any_control = 0;
@@ -174,7 +174,7 @@ uint32_t primary_enable_trace_component(uint64_t base_addr)
  * return 0xffffffff, error(rw trace register error)
  * return 0, success
  */
-uint32_t reset_trace_component(uint64_t base_addr)
+int32_t reset_trace_component(uint64_t base_addr)
 {
 	uint32_t i;
 	uint32_t tr_any_control = 0;
@@ -201,7 +201,7 @@ uint32_t reset_trace_component(uint64_t base_addr)
 /*
  * return -1, failed, else, return the read value
  */
-uint32_t xt_trace_register_readafterwrite(uint64_t reg_addr, uint32_t value)
+int32_t xt_trace_register_readafterwrite(uint64_t reg_addr, uint32_t value)
 {
 	uint32_t return_value = 0;
 
@@ -232,7 +232,7 @@ uint32_t enable_trace_encoder_inst_tracing(uint64_t base_addr)
 	return 0;
 }
 
-uint32_t enable_trace_encoder_timestamp(uint64_t base_addr)
+int32_t enable_trace_encoder_timestamp(uint64_t base_addr)
 {
 	uint32_t tr_ts_control = 0;
 
@@ -348,7 +348,7 @@ xt_trace_funnel_enable(struct xt_trace_funnel_control_info *funnel_info)
 /**
  * Disable interface
  */
-uint32_t disable_trace_component(uint64_t base_addr)
+int32_t disable_trace_component(uint64_t base_addr)
 {
 	uint32_t i;
 	uint32_t tr_any_control = 0;
@@ -454,7 +454,7 @@ xt_trace_funnel_disable(struct xt_trace_funnel_control_info *funnel_info)
 /**
  * Close interface
  */
-uint32_t close_trace_component(uint64_t base_addr)
+int32_t close_trace_component(uint64_t base_addr)
 {
 	uint32_t i;
 	uint32_t tr_any_control = 0;

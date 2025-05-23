@@ -776,7 +776,7 @@ void check_unaligned_access(int cpu)
 	u64 start_cycles, end_cycles;
 	u64 word_cycles;
 	u64 byte_cycles;
-	int ratio;
+	u64 ratio;
 	unsigned long start_jiffies, now;
 	struct page *page;
 	void *dst;
@@ -855,7 +855,7 @@ void check_unaligned_access(int cpu)
 		speed = RISCV_HWPROBE_MISALIGNED_FAST;
 
 	ratio = div_u64((byte_cycles * 100), word_cycles);
-	pr_info("cpu%d: Ratio of byte access time to unaligned word access is %d.%02d, unaligned accesses are %s\n",
+	pr_info("cpu%d: Ratio of byte access time to unaligned word access is %lld.%02lld, unaligned accesses are %s\n",
 		cpu,
 		ratio / 100,
 		ratio % 100,

@@ -265,7 +265,7 @@ TRACE_CONTROL_LIB_API void xt_init_trace_encoder_control_info(
 TRACE_CONTROL_LIB_API int32_t
 xt_trace_detect_trace_sink(struct xt_trace_sink_control_info *sink_info)
 {
-	uint32_t tr_sink_control = 0;
+	int32_t tr_sink_control = 0;
 	uint32_t tr_sink_impl = 0;
 	uint64_t base_addr = sink_info->base_addr;
 	uint32_t async_freq_reg_offset = 0;
@@ -617,7 +617,7 @@ TRACE_CONTROL_LIB_API int32_t
 xt_trace_detect_trace_funnel(struct xt_trace_funnel_control_info *funnel_info)
 {
 	char str[100] = { '\0' };
-	uint32_t tr_funnel_control = 0;
+	int32_t tr_funnel_control = 0;
 	uint32_t tr_funnel_impl = 0;
 	uint32_t tr_funnel_disinput = 0;
 	uint64_t base_addr = funnel_info->base_addr;
@@ -723,7 +723,7 @@ TRACE_CONTROL_LIB_API int32_t xt_trace_detect_trace_encoder(
 	struct xt_trace_encoder_control_info *encoder_info)
 {
 	char str[100];
-	uint32_t tr_encoder_control = 0;
+	int32_t tr_encoder_control = 0;
 	uint32_t tr_encoder_impl = 0;
 	uint32_t tr_te_inst_features = 0;
 	uint32_t tr_te_inst_filters = 0;
@@ -1138,7 +1138,7 @@ TRACE_CONTROL_LIB_API int32_t xt_trace_detect_trace_encoder(
 	if (tr_te_inst_filters == -1)
 		return -1;
 	if (tr_te_inst_filters != 0) {
-		uint32_t i = 0;
+		int32_t i = 0;
 		uint32_t tr_te_filter_control = 0;
 		uint32_t tr_te_comp_control = 0;
 
