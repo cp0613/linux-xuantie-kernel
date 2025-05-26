@@ -413,7 +413,7 @@ load_lp_nowait $MOD_LIVEPATCH
 # Wait until the livepatch reports in-transition state, i.e. that it's
 # stalled on $MOD_TARGET_BUSY::busymod_work_func()
 loop_until 'grep -q '^1$' /sys/kernel/livepatch/$MOD_LIVEPATCH/transition' ||
-	disable_lp $MOD_LIVEPATCH;unload_lp $MOD_LIVEPATCH;unload_mod $MOD_TARGET_BUSY;die "failed to stall transition"
+	(disable_lp $MOD_LIVEPATCH;unload_lp $MOD_LIVEPATCH;unload_mod $MOD_TARGET_BUSY;die "failed to stall transition")
 
 load_mod $MOD_TARGET
 unload_mod $MOD_TARGET
