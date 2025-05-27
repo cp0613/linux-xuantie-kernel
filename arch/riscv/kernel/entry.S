@@ -53,8 +53,9 @@ _save_context:
 	 * If previous mode was U, capture shadow stack pointer and save it away
 	 * Zero CSR_SSP at the same time for sanitization.
 	 */
-	ALTERNATIVE("nop; nop; nop; nop",
+	ALTERNATIVE("nop; nop; nop; nop; nop",
 				__stringify(			\
+				csrr s1, CSR_STATUS;	\
 				andi s2, s1, SR_SPP;	\
 				bnez s2, skip_ssp_save;	\
 				csrrw s2, CSR_SSP, x0;	\
