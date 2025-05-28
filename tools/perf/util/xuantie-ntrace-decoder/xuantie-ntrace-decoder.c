@@ -375,37 +375,77 @@ static bool xt_trace_is_indirect_branch_insn(uint32_t insn_length,
 
 #define RESOURCEFULL_MSG_MAX 64
 struct resourcefull_message {
-	uint32_t rdata0[RESOURCEFULL_MSG_MAX];
-	uint32_t rdata0_count;
-	uint32_t hist_count[RESOURCEFULL_MSG_MAX];
+	uint32_t rdata0;
+	uint32_t hist_count;
+	struct resourcefull_message *next;
+};
+
+struct hist_resourcefull_message {
+	struct resourcefull_message *msg;
 	uint32_t total_hist_count;
-} resource_full_icnt, resource_full_hist;
+};
+
+static struct resourcefull_message *icnt_resourcefull_header;
+static struct hist_resourcefull_message hist_resourcefull_header;
 
 static void resource_full_clear(void)
 {
-	memset(&resource_full_icnt, 0, sizeof(resource_full_icnt));
-	memset(&resource_full_hist, 0, sizeof(resource_full_hist));
+	if (icnt_resourcefull_header) {
+		struct resourcefull_message *tmp = NULL;
+
+		while (icnt_resourcefull_header) {
+			tmp = icnt_resourcefull_header->next;
+			free(icnt_resourcefull_header);
+			icnt_resourcefull_header = tmp;
+		}
+	}
+
+	if (hist_resourcefull_header.msg) {
+		struct resourcefull_message *tmp = NULL;
+
+		while (hist_resourcefull_header.msg) {
+			tmp = hist_resourcefull_header.msg->next;
+			free(hist_resourcefull_header.msg);
+			hist_resourcefull_header.msg = tmp;
+		}
+
+		hist_resourcefull_header.total_hist_count = 0;
+	}
 }
 
 static int32_t add_resource_full_icnt(uint32_t icnt)
 {
-	resource_full_icnt.rdata0[resource_full_icnt.rdata0_count] = icnt;
-	resource_full_icnt.rdata0_count++;
+	struct resourcefull_message *msg =
+		(struct resourcefull_message *)malloc(sizeof(struct resourcefull_message));
 
-	if (resource_full_icnt.rdata0_count >= RESOURCEFULL_MSG_MAX) {
-		printf("Get icount count max %d\n", RESOURCEFULL_MSG_MAX);
+	if (msg == NULL) {
+		printf("malloc failed: add i-cnt\n");
 		return -1;
+	}
+	msg->rdata0 = icnt;
+	msg->next = NULL;
+
+	if (icnt_resourcefull_header) {
+		struct resourcefull_message *tmp = icnt_resourcefull_header;
+
+		while (tmp->next)
+			tmp = tmp->next;
+		tmp->next = msg;
 	} else
-		return 0;
+		icnt_resourcefull_header = msg;
+
+	return 0;
 }
 
 static uint64_t get_resource_full_icnt(uint32_t icnt)
 {
-	uint32_t i = 0;
 	uint64_t total_icnt = icnt;
+	struct resourcefull_message *tmp = icnt_resourcefull_header;
 
-	for (i = 0; i < resource_full_icnt.rdata0_count; i++)
-		total_icnt += resource_full_icnt.rdata0[i];
+	while (tmp) {
+		total_icnt += tmp->rdata0;
+		tmp = tmp->next;
+	}
 
 	return total_icnt;
 }
@@ -413,14 +453,14 @@ static uint64_t get_resource_full_icnt(uint32_t icnt)
 static int32_t add_resource_full_hist(uint32_t hist)
 {
 	uint32_t i = 0;
+	struct resourcefull_message *msg = NULL;
 
 	if (hist == 0 || hist == 1)
 		return 0;
-	resource_full_hist.rdata0[resource_full_hist.rdata0_count] = hist;
-	resource_full_hist.rdata0_count++;
 
-	if (resource_full_hist.rdata0_count >= RESOURCEFULL_MSG_MAX) {
-		printf("Get hist count max %d\n", RESOURCEFULL_MSG_MAX);
+	msg = (struct resourcefull_message *)malloc(sizeof(struct resourcefull_message));
+	if (msg == NULL) {
+		printf("malloc failed: add hist\n");
 		return -1;
 	}
 
@@ -428,36 +468,42 @@ static int32_t add_resource_full_hist(uint32_t hist)
 		if ((1 << i) & hist)
 			break;
 	}
+	msg->hist_count = i;
+	msg->rdata0 = hist;
+	msg->next = NULL;
 
-	if (i == 0) {
-		printf("Get error hist value 0x%x\n", hist);
-		return -1;
-	}
-	resource_full_hist.hist_count[resource_full_hist.rdata0_count - 1] = i;
-	resource_full_hist.total_hist_count += i;
+	if (hist_resourcefull_header.msg != NULL) {
+		struct resourcefull_message *tmp = hist_resourcefull_header.msg;
+
+		while (tmp->next)
+			tmp = tmp->next;
+		tmp->next = msg;
+	} else
+		hist_resourcefull_header.msg = msg;
+
+	hist_resourcefull_header.total_hist_count += i;
 
 	return 0;
 }
 
 static int32_t get_one_hist(void)
 {
-	uint32_t i = 0;
 	uint32_t condition = 0;
+	struct resourcefull_message *tmp = hist_resourcefull_header.msg;
 
-	if (resource_full_hist.total_hist_count == 0) {
+	if (hist_resourcefull_header.total_hist_count == 0) {
 		printf("Error No Hist.\n");
 		return -1;
 	}
 
-	for (i = 0; i < resource_full_hist.rdata0_count; i++) {
-		if (resource_full_hist.hist_count[i] != 0) {
-			condition =
-				(1 << (resource_full_hist.hist_count[i] - 1)) &
-				resource_full_hist.rdata0[i];
-			resource_full_hist.hist_count[i]--;
-			resource_full_hist.total_hist_count--;
+	while (tmp) {
+		if (tmp->hist_count != 0) {
+			condition = (1 << (tmp->hist_count - 1)) & tmp->rdata0;
+			tmp->hist_count--;
+			hist_resourcefull_header.total_hist_count--;
 			return condition ? 1 : 0;
-		}
+		} else
+			tmp = tmp->next;
 	}
 
 	printf("Error No Hist.\n");
@@ -466,7 +512,7 @@ static int32_t get_one_hist(void)
 
 static uint32_t get_hist_count(void)
 {
-	return resource_full_hist.total_hist_count;
+	return hist_resourcefull_header.total_hist_count;
 }
 
 static int32_t
@@ -1530,8 +1576,8 @@ int32_t xuantie_ntrace_decoder__process_full_message(struct perf_session *sessio
 			resource_full_clear();
 			if (ret < 0) {
 				node->invalid = 1;
-				error_message_happened = true;
-				break;
+				// error_message_happened = true;
+				// break;
 			}
 
 			if (xt_trace_get_start_and_full_addr(node, session, buffer)) {
@@ -1561,8 +1607,8 @@ int32_t xuantie_ntrace_decoder__process_full_message(struct perf_session *sessio
 			resource_full_clear();
 			if (ret < 0) {
 				node->invalid = 1;
-				error_message_happened = true;
-				break;
+				// error_message_happened = true;
+				// break;
 			}
 			if (xt_trace_get_start_and_full_addr(node, session, buffer)) {
 				node->invalid = 1;
@@ -1583,8 +1629,8 @@ int32_t xuantie_ntrace_decoder__process_full_message(struct perf_session *sessio
 			resource_full_clear();
 			if (ret < 0) {
 				node->invalid = 1;
-				error_message_happened = true;
-				break;
+				// error_message_happened = true;
+				// break;
 			}
 			if (xt_trace_get_start_and_full_addr(node, session, buffer)) {
 				node->invalid = 1;
@@ -1605,8 +1651,8 @@ int32_t xuantie_ntrace_decoder__process_full_message(struct perf_session *sessio
 			resource_full_clear();
 			if (ret < 0) {
 				node->invalid = 1;
-				error_message_happened = true;
-				break;
+				// error_message_happened = true;
+				// break;
 			}
 			if (xt_trace_get_start_and_full_addr(node, session, buffer)) {
 				node->invalid = 1;
@@ -1644,8 +1690,8 @@ int32_t xuantie_ntrace_decoder__process_full_message(struct perf_session *sessio
 			resource_full_clear();
 			if (ret < 0) {
 				node->invalid = 1;
-				error_message_happened = true;
-				break;
+				// error_message_happened = true;
+				// break;
 			}
 			if (xt_trace_get_start_and_full_addr(node, session, buffer)) {
 				node->invalid = 1;
@@ -1668,8 +1714,8 @@ int32_t xuantie_ntrace_decoder__process_full_message(struct perf_session *sessio
 			resource_full_clear();
 			if (ret < 0) {
 				node->invalid = 1;
-				error_message_happened = true;
-				break;
+				// error_message_happened = true;
+				// break;
 			}
 			if (xt_trace_get_start_and_full_addr(node, session, buffer)) {
 				node->invalid = 1;
@@ -1694,8 +1740,8 @@ int32_t xuantie_ntrace_decoder__process_full_message(struct perf_session *sessio
 			resource_full_clear();
 			if (ret < 0) {
 				node->invalid = 1;
-				error_message_happened = true;
-				break;
+				// error_message_happened = true;
+				// break;
 			}
 			if (xt_trace_get_start_and_full_addr(node, session, buffer)) {
 				node->invalid = 1;
@@ -1885,8 +1931,6 @@ int32_t xt_trace_program_trace_display(bool with_msg, bool with_addr,
 			case TCODE_INDIRECTBRANCHHIST:
 			case TCODE_INDIRECTBRANCHHISTSYNC:
 			case TCODE_PROGTRACECORRELATION:
-				if (node_p->invalid)
-					break;
 				printf(
 				"    Start from 0x%lx %-30s (%s)  ==>  End to 0x%lx %-30s (%s)\n",
 					node_p->start_addr,
@@ -1899,6 +1943,8 @@ int32_t xt_trace_program_trace_display(bool with_msg, bool with_addr,
 						"unknown" : node_p->faddr_sym,
 					node_p->faddr_dso[0] == '\0' ?
 						"unknown" : node_p->faddr_dso);
+				if (node_p->invalid)
+					break;
 				if (node_p->addr_range) {
 					struct xt_trace_address_range *range_p =
 						node_p->addr_range;

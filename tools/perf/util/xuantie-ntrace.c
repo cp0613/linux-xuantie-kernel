@@ -203,7 +203,7 @@ static int xuantie_ntrace_flush(struct perf_session *session __maybe_unused,
 
 			if (buffer->size >
 			    sizeof(struct xuantie_saved_config)) {
-				pr_info("Parsing buffer size: 0x%lx  offset 0x%lx\n",
+				pr_info("Parsing buffer: size 0x%lx, offset 0x%lx.\n",
 					buffer->size, buffer->offset);
 				if (xuantie_ntrace_decoder__process_metedata(
 					    saved_config,
