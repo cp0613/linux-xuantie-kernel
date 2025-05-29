@@ -5,7 +5,7 @@
 #ifndef __ASM_PERCPU_H
 #define __ASM_PERCPU_H
 
-#include <asm/cmpxchg.h>
+//#include <asm/cmpxchg.h>
 
 #define PERCPU_OP(op, asm_op, c_op)                                            \
 	static inline unsigned long __percpu_##op(void *ptr,                   \
