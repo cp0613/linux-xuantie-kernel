@@ -169,6 +169,7 @@ static const struct msi_domain_template aplic_msi_template = {
 		.bus_token		= DOMAIN_BUS_WIRED_TO_MSI,
 		.flags			= MSI_FLAG_USE_DEV_FWNODE,
 		.handler		= handle_fasteoi_irq,
+		.handler_name		= "fasteoi",
 	},
 };
 
