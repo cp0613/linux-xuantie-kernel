@@ -33,6 +33,11 @@ static bool xt_script_with_insn;
 static bool xt_script_with_ranges;
 static bool xt_script_with_msg;
 
+struct auxtrace_full {
+	u32 idx;
+	bool full;
+};
+
 struct xuantie_ntrace {
 	struct auxtrace auxtrace;
 	u32 auxtrace_type;
@@ -43,7 +48,33 @@ struct xuantie_ntrace {
 	struct auxtrace_queues queues;
 	bool data_queued;
 	bool per_thread_decoding;
+
+	struct auxtrace_full afull[256];
+	u32 afull_count;
 };
+
+static bool xuantie_ntrace_get_afull(u32 idx, struct xuantie_ntrace *ntrace)
+{
+	u32 i = 0;
+
+	for (i = 0; i < ntrace->afull_count; i++) {
+		if (ntrace->afull[i].idx == idx)
+			return ntrace->afull[i].full;
+	}
+
+	return false;
+}
+
+static void xuantie_ntrace_set_afull(u32 idx, struct xuantie_ntrace *ntrace)
+{
+	if (ntrace->afull_count == 256) {
+		pr_err("Auxtrace Event count is bigger than 256.\n");
+		return;
+	}
+	ntrace->afull[ntrace->afull_count].idx = idx;
+	ntrace->afull[ntrace->afull_count].full = true;
+	ntrace->afull_count++;
+}
 
 static int
 xuantie_ntrace_process_event(struct perf_session *session __maybe_unused,
@@ -51,6 +82,28 @@ xuantie_ntrace_process_event(struct perf_session *session __maybe_unused,
 			     struct perf_sample *sample __maybe_unused,
 			     struct perf_tool *tool __maybe_unused)
 {
+	return 0;
+}
+
+static int xuantie_ntrace_check_saved_config(struct xuantie_saved_config *config)
+{
+	if (config->_size < 0x18) {
+		pr_err("XUANTIE NTRACE: saved_config->_size 0x%x < 0x18\n", config->_size);
+		return -1;
+	}
+	if (config->inst_mode != 3 && config->inst_mode != 6) {
+		pr_err("XUANTIE NTRACE: saved_config->inst_mode %d (not 3 or 6)\n", config->inst_mode);
+		return -1;
+	}
+	if (config->src_bits > 15) {
+		pr_err("XUANTIE NTRACE: saved_config->src_bits %d is bigger than 15.\n", config->src_bits);
+		return -1;
+	}
+	if (config->timestamp_bits > 63) {
+		pr_err("XUANTIE NTRACE: saved_config->timestamp_bits %d is bigger than 63\n", config->timestamp_bits);
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -66,40 +119,31 @@ static void xuantie_ntrace__dump_event(struct perf_session *session __maybe_unus
 	}
 
 	saved_config = (struct xuantie_saved_config *)buffer->data;
-	pr_info("%s size: 0x%lx offset: 0x%lx\n",
-		__func__, buffer->size, buffer->offset);
+	pr_info("%s size: 0x%lx offset: 0x%lx\n", __func__, buffer->size, buffer->offset);
 	fprintf(stdout, "\n");
-	color_fprintf(stdout, color,
-		      ". xuantie_ntrace_dump: saved_configs are:\n");
-	fprintf(stdout, ".  saved_config->_size is 0x%x.\n",
-		saved_config->_size);
-	fprintf(stdout, ".  saved_config->inst_mode is 0x%x.\n",
-		saved_config->inst_mode);
-	fprintf(stdout, ".  saved_config->src_bits is 0x%x.\n",
-		saved_config->src_bits);
-	fprintf(stdout, ".  saved_config->timestamp_bits is 0x%x.\n",
-		saved_config->timestamp_bits);
-	fprintf(stdout, ".  saved_config->trace_ram_wrap is 0x%x.\n",
-		saved_config->trace_ram_wrap);
+	color_fprintf(stdout, color, ". xuantie_ntrace_dump: saved_configs are:\n");
+	fprintf(stdout, ".  saved_config->_size is 0x%x.\n", saved_config->_size);
+	fprintf(stdout, ".  saved_config->inst_mode is 0x%x.\n", saved_config->inst_mode);
+	fprintf(stdout, ".  saved_config->src_bits is 0x%x.\n", saved_config->src_bits);
+	fprintf(stdout, ".  saved_config->timestamp_bits is 0x%x.\n", saved_config->timestamp_bits);
+	fprintf(stdout, ".  saved_config->trace_ram_wrap is 0x%x.\n", saved_config->trace_ram_wrap);
+	fprintf(stdout, ".  metedata size is 0x%lx.\n", buffer->size - sizeof(struct xuantie_saved_config));
 
-	fprintf(stdout, ".  metedata size is 0x%lx.\n",
-		buffer->size - sizeof(struct xuantie_saved_config));
+	if (xuantie_ntrace_check_saved_config(saved_config))
+		return;
 
 	if (buffer->size > sizeof(struct xuantie_saved_config)) {
 		if (xuantie_ntrace_decoder__process_metedata(
 			    saved_config,
 			    buffer->data + sizeof(struct xuantie_saved_config),
-			    buffer->size -
-				    sizeof(struct xuantie_saved_config)) == 0) {
-			color_fprintf(stdout, color,
-			    ". ntrace messages are(There is a scheduling event happening here.):\n");
+			    buffer->size - sizeof(struct xuantie_saved_config)) == 0) {
+			color_fprintf(stdout, color, ". ntrace messages are(There is a scheduling event happening here.):\n");
 			xt_trace_program_trace_display(true, false, false);
 		}
 	}
 }
 
-static void dump_queued_data(struct xuantie_ntrace *ntrace,
-			     struct perf_record_auxtrace *event)
+static void dump_queued_data(struct xuantie_ntrace *ntrace, struct perf_record_auxtrace *event)
 {
 	struct auxtrace_buffer *buffer;
 	unsigned int i;
@@ -108,13 +152,10 @@ static void dump_queued_data(struct xuantie_ntrace *ntrace,
 	 * This is because the queues can contain multiple entries of the same
 	 * buffer that were split on aux records.
 	 */
-	//for (i = 0; i < ntrace->queues.nr_queues; ++i)
-	for (i = 0; i < 1; ++i)
-		list_for_each_entry(buffer,
-				     &ntrace->queues.queue_array[i].head, list)
+	for (i = 0; i < ntrace->queues.nr_queues; ++i)
+		list_for_each_entry(buffer, &ntrace->queues.queue_array[i].head, list)
 			if (buffer->reference == event->reference)
-				xuantie_ntrace__dump_event(ntrace->session,
-							   buffer);
+				xuantie_ntrace__dump_event(ntrace->session, buffer);
 }
 
 static int
@@ -122,8 +163,7 @@ xuantie_ntrace_process_auxtrace_event(struct perf_session *session,
 				      union perf_event *event,
 				      struct perf_tool *tool __maybe_unused)
 {
-	struct xuantie_ntrace *ntrace = container_of(
-		session->auxtrace, struct xuantie_ntrace, auxtrace);
+	struct xuantie_ntrace *ntrace = container_of(session->auxtrace, struct xuantie_ntrace, auxtrace);
 
 	if (!ntrace->data_queued) {
 		struct auxtrace_buffer *buffer;
@@ -140,8 +180,7 @@ xuantie_ntrace_process_auxtrace_event(struct perf_session *session,
 				return -errno;
 		}
 
-		err = auxtrace_queues__add_event(&ntrace->queues, session,
-						 event, data_offset, &buffer);
+		err = auxtrace_queues__add_event(&ntrace->queues, session, event, data_offset, &buffer);
 		if (err)
 			return err;
 
@@ -161,8 +200,7 @@ static int xuantie_ntrace_flush(struct perf_session *session __maybe_unused,
 				struct perf_tool *tool __maybe_unused)
 {
 	unsigned int i;
-	struct xuantie_ntrace *ntrace = container_of(
-		session->auxtrace, struct xuantie_ntrace, auxtrace);
+	struct xuantie_ntrace *ntrace = container_of(session->auxtrace, struct xuantie_ntrace, auxtrace);
 	struct auxtrace_queues *queues = &ntrace->queues;
 
 	if (dump_trace)
@@ -186,41 +224,30 @@ static int xuantie_ntrace_flush(struct perf_session *session __maybe_unused,
 			//        buffer->size, buffer->offset,
 			//        buffer->data_offset);
 
-			saved_config =
-				(struct xuantie_saved_config *)buffer->data;
-			// color_fprintf(stdout, color,
-			//        ". ... xuantie saved configs are:\n");
-			// printf("saved_config->_size is 0x%x\n",
-			//        saved_config->_size);
-			// printf("saved_config->inst_mode is 0x%x\n",
-			//        saved_config->inst_mode);
-			// printf("saved_config->src_bits is 0x%x\n",
-			//        saved_config->src_bits);
-			// printf("saved_config->timestamp_bits is 0x%x\n",
-			//        saved_config->timestamp_bits);
-			// printf("saved_config->trace_ram_wrap is 0x%x\n",
-			//        saved_config->trace_ram_wrap);
+			saved_config = (struct xuantie_saved_config *)buffer->data;
+			// color_fprintf(stdout, color, ". ... xuantie saved configs are:\n");
+			// printf("saved_config->_size is 0x%x\n", saved_config->_size);
+			// printf("saved_config->inst_mode is 0x%x\n", saved_config->inst_mode);
+			// printf("saved_config->src_bits is 0x%x\n", saved_config->src_bits);
+			// printf("saved_config->timestamp_bits is 0x%x\n", saved_config->timestamp_bits);
+			// printf("saved_config->trace_ram_wrap is 0x%x\n", saved_config->trace_ram_wrap);
 
-			if (buffer->size >
-			    sizeof(struct xuantie_saved_config)) {
-				pr_info("Parsing buffer: size 0x%lx, offset 0x%lx.\n",
-					buffer->size, buffer->offset);
+			if (xuantie_ntrace_check_saved_config(saved_config))
+				return 0;
+
+			if (buffer->size > sizeof(struct xuantie_saved_config)) {
+				pr_info("Parsing buffer: size 0x%lx, offset 0x%lx.\n", buffer->size, buffer->offset);
 				if (xuantie_ntrace_decoder__process_metedata(
 					    saved_config,
-					    buffer->data +
-						    sizeof(struct xuantie_saved_config),
-					    buffer->size -
-						    sizeof(struct xuantie_saved_config))) {
+					    buffer->data + sizeof(struct xuantie_saved_config),
+					    buffer->size - sizeof(struct xuantie_saved_config))) {
 					printf("XUANTIE NTrace: parse metedata failed.\n");
 					return 0;
 				}
 				if (xuantie_ntrace_decoder__process_full_message(
 					    session, buffer, xt_script_with_ranges) == 0) {
-					color_fprintf(
-						stdout, color,
-						". ntrace full messages are:\n");
-					xt_trace_program_trace_display(
-						xt_script_with_msg, true, xt_script_with_insn);
+					color_fprintf(stdout, color, ". ntrace full messages are:\n");
+					xt_trace_program_trace_display(xt_script_with_msg, true, xt_script_with_insn);
 				} else {
 					printf("XUANTIE NTrace: parse full message failed.\n");
 					return 0;
@@ -245,8 +272,7 @@ xuantie_ntrace_free_events(struct perf_session *session __maybe_unused)
 
 static void xuantie_ntrace_free(struct perf_session *session)
 {
-	struct xuantie_ntrace *ntrace = container_of(
-		session->auxtrace, struct xuantie_ntrace, auxtrace);
+	struct xuantie_ntrace *ntrace = container_of(session->auxtrace, struct xuantie_ntrace, auxtrace);
 
 	session->auxtrace = NULL;
 	free(ntrace);
@@ -255,8 +281,7 @@ static void xuantie_ntrace_free(struct perf_session *session)
 static bool xuantie_ntrace_evsel_is_auxtrace(struct perf_session *session,
 					     struct evsel *evsel)
 {
-	struct xuantie_ntrace *ntrace = container_of(
-		session->auxtrace, struct xuantie_ntrace, auxtrace);
+	struct xuantie_ntrace *ntrace = container_of(session->auxtrace, struct xuantie_ntrace, auxtrace);
 
 	return evsel->core.attr.type == ntrace->pmu_type;
 }
@@ -284,10 +309,7 @@ static int xuantie_ntrace__queue_aux_fragment(struct perf_session *session,
 	struct perf_record_auxtrace *auxtrace_event;
 	union perf_event auxtrace_fragment;
 	__u64 aux_offset, aux_size;
-	// __u32 idx;
-	// bool formatted;
-	struct xuantie_ntrace *ntrace = container_of(
-		session->auxtrace, struct xuantie_ntrace, auxtrace);
+	struct xuantie_ntrace *ntrace = container_of(session->auxtrace, struct xuantie_ntrace, auxtrace);
 
 	/*
 	 * There should be a PERF_RECORD_AUXTRACE event at the file_offset that we got
@@ -306,6 +328,16 @@ static int xuantie_ntrace__queue_aux_fragment(struct perf_session *session,
 	    auxtrace_event->header.size != sz) {
 		return -EINVAL;
 	}
+
+	/* Here, we only compare aux_offset, aux_size, auxtrace_event->offset, auxtrace_event->size,
+	 * which may call two aux events with offset 0 are connected to one auxtrace event.
+	 * Here, try to use auxtrace_full as a flag to mark this auxtrace event can not be used any
+	 * more.
+	 *
+	 * FIXME: clearify how to connect an aux event to auxtrace event?
+	 */
+	if (xuantie_ntrace_get_afull(auxtrace_event->idx, ntrace))
+		return 1;
 
 	if (aux_event->flags & PERF_AUX_FLAG_OVERWRITE) {
 		/*
@@ -335,8 +367,7 @@ static int xuantie_ntrace__queue_aux_fragment(struct perf_session *session,
 		auxtrace_fragment.auxtrace = *auxtrace_event;
 		auxtrace_fragment.auxtrace.size = aux_size;
 		auxtrace_fragment.auxtrace.offset = aux_offset;
-		file_offset += aux_offset - auxtrace_event->offset +
-			       auxtrace_event->header.size;
+		file_offset += aux_offset - auxtrace_event->offset + auxtrace_event->header.size;
 
 		//pr_info("Queue buffer size: %#" PRI_lx64 " offset: %#" PRI_lx64
 		//	" tid: %d cpu: %d\n",
@@ -348,10 +379,9 @@ static int xuantie_ntrace__queue_aux_fragment(struct perf_session *session,
 		if (err)
 			return err;
 
-		// idx = auxtrace_event->idx;
-		// formatted = !(aux_event->flags & PERF_AUX_FLAG_CORESIGHT_FORMAT_RAW);
-		// return cs_etm__setup_queue(etm, &etm->queues.queue_array[idx],
-		//                           idx, formatted);
+		if ((aux_offset + aux_size) == (auxtrace_event->offset + auxtrace_event->size))
+			xuantie_ntrace_set_afull(auxtrace_event->idx, ntrace);
+
 		return 0;
 	}
 
@@ -386,9 +416,7 @@ static int xuantie_ntrace__queue_aux_records_cb(struct perf_session *session,
 	list_for_each_entry(auxtrace_index, &session->auxtrace_index, list) {
 		for (i = 0; i < auxtrace_index->nr; i++) {
 			ent = &auxtrace_index->entries[i];
-			ret = xuantie_ntrace__queue_aux_fragment(
-				session, ent->file_offset, ent->sz,
-				&event->aux);
+			ret = xuantie_ntrace__queue_aux_fragment(session, ent->file_offset, ent->sz, &event->aux);
 			/*
 			 * Stop search on error or successful values. Continue search on
 			 * 1 ('not found')
@@ -402,15 +430,14 @@ static int xuantie_ntrace__queue_aux_records_cb(struct perf_session *session,
 	 * Couldn't find the buffer corresponding to this aux record, something went wrong. Warn but
 	 * don't exit with an error because it will still be possible to decode other aux records.
 	 */
-	pr_err("Couldn't find auxtrace buffer for aux_offset: %#" PRI_lx64 "\n",
-	       event->aux.aux_offset);
+	pr_err("Couldn't find auxtrace buffer for aux_offset: %#" PRI_lx64 "\n", event->aux.aux_offset);
+
 	return 0;
 }
 
 static int xuantie_ntrace__queue_aux_records(struct perf_session *session)
 {
-	struct auxtrace_index *index = list_first_entry_or_null(
-		&session->auxtrace_index, struct auxtrace_index, list);
+	struct auxtrace_index *index = list_first_entry_or_null(&session->auxtrace_index, struct auxtrace_index, list);
 	if (index && index->nr > 0)
 		return perf_session__peek_events(
 			session, session->header.data_offset,
@@ -428,8 +455,7 @@ int xuantie_ntrace_process_auxtrace_info(union perf_event *event,
 	struct xuantie_ntrace *ntrace;
 
 	if (auxtrace_info->header.size <
-	    XUANTIE_NTRACE_AUXTRACE_PRIV_SIZE +
-		    sizeof(struct perf_record_auxtrace_info))
+	    XUANTIE_NTRACE_AUXTRACE_PRIV_SIZE + sizeof(struct perf_record_auxtrace_info))
 		return -EINVAL;
 
 	ntrace = zalloc(sizeof(*ntrace));
@@ -446,8 +472,7 @@ int xuantie_ntrace_process_auxtrace_info(union perf_event *event,
 	ntrace->pmu_type = auxtrace_info->priv[0];
 
 	ntrace->auxtrace.process_event = xuantie_ntrace_process_event;
-	ntrace->auxtrace.process_auxtrace_event =
-		xuantie_ntrace_process_auxtrace_event;
+	ntrace->auxtrace.process_auxtrace_event = xuantie_ntrace_process_auxtrace_event;
 	ntrace->auxtrace.flush_events = xuantie_ntrace_flush;
 	ntrace->auxtrace.free_events = xuantie_ntrace_free_events;
 	ntrace->auxtrace.free = xuantie_ntrace_free;
