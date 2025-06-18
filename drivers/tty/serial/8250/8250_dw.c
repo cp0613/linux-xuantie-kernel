@@ -56,6 +56,7 @@
 #define DW_UART_QUIRK_IS_DMA_FC		BIT(3)
 #define DW_UART_QUIRK_APMC0D08		BIT(4)
 #define DW_UART_QUIRK_CPR_VALUE		BIT(5)
+#define DW_UART_QUIRK_DISABLE_SHARE_IRQ		BIT(6)
 
 struct dw8250_platform_data {
 	u8 usr_reg;
@@ -504,6 +505,9 @@ static void dw8250_quirks(struct uart_port *p, struct dw8250_data *data)
 		p->serial_in = dw8250_serial_in32;
 		data->uart_16550_compatible = true;
 	}
+	if (quirks & DW_UART_QUIRK_DISABLE_SHARE_IRQ) {
+		p->flags &= ~UPF_SHARE_IRQ;
+	}
 
 	/* Platforms with iDMA 64-bit */
 	if (platform_get_resource_byname(to_platform_device(p->dev),
@@ -790,12 +794,18 @@ static const struct dw8250_platform_data dw8250_starfive_jh7100_data = {
 	.quirks = DW_UART_QUIRK_SKIP_SET_RATE,
 };
 
+static const struct dw8250_platform_data dw8250_xuantie_dw_apb_data = {
+	.usr_reg = DW_UART_USR,
+	.quirks =  DW_UART_QUIRK_DISABLE_SHARE_IRQ,
+};
+
 static const struct of_device_id dw8250_of_match[] = {
 	{ .compatible = "snps,dw-apb-uart", .data = &dw8250_dw_apb },
 	{ .compatible = "cavium,octeon-3860-uart", .data = &dw8250_octeon_3860_data },
 	{ .compatible = "marvell,armada-38x-uart", .data = &dw8250_armada_38x_data },
 	{ .compatible = "renesas,rzn1-uart", .data = &dw8250_renesas_rzn1_data },
 	{ .compatible = "starfive,jh7100-uart", .data = &dw8250_starfive_jh7100_data },
+	{ .compatible = "xuantie,dw-apb-uart", .data = &dw8250_xuantie_dw_apb_data },
 	{ /* Sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dw8250_of_match);
