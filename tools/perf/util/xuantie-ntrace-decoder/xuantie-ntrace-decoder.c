@@ -979,8 +979,10 @@ xt_trace_get_start_and_full_addr(struct xt_trace_program_flow_node *node,
 	case TCODE_PROGTRACECORRELATION: {
 		struct xt_trace_address_range *range = node->addr_range;
 
-		if (!node->addr_range)
-			return -1;
+		if (!node->addr_range) {
+			node->full_addr = 0xffffffffffffffff;
+			return 0;
+		}
 
 		while (range->next)
 			range = range->next;

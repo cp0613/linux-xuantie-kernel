@@ -180,7 +180,7 @@ Examples1:
 NOTE:
 1. Messages starting with 'TCODE' are the raw RISC-V N-Trace messages,
 which are displayed when selecting 'all ntrace massages' in --itrace=n?
-or when using perf report --D.
+or when using perf report -D.
 
 2. Messages starting with 'Start' will be printed in the perf script
 command:
