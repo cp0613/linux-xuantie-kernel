@@ -34,7 +34,7 @@ static bool xt_script_with_ranges;
 static bool xt_script_with_msg;
 
 struct auxtrace_full {
-	u32 idx;
+	u64 reference;
 	bool full;
 };
 
@@ -53,25 +53,25 @@ struct xuantie_ntrace {
 	u32 afull_count;
 };
 
-static bool xuantie_ntrace_get_afull(u32 idx, struct xuantie_ntrace *ntrace)
+static bool xuantie_ntrace_get_afull(u64 reference, struct xuantie_ntrace *ntrace)
 {
 	u32 i = 0;
 
 	for (i = 0; i < ntrace->afull_count; i++) {
-		if (ntrace->afull[i].idx == idx)
+		if (ntrace->afull[i].reference == reference)
 			return ntrace->afull[i].full;
 	}
 
 	return false;
 }
 
-static void xuantie_ntrace_set_afull(u32 idx, struct xuantie_ntrace *ntrace)
+static void xuantie_ntrace_set_afull(u64 reference, struct xuantie_ntrace *ntrace)
 {
 	if (ntrace->afull_count == 256) {
 		pr_err("Auxtrace Event count is bigger than 256.\n");
 		return;
 	}
-	ntrace->afull[ntrace->afull_count].idx = idx;
+	ntrace->afull[ntrace->afull_count].reference = reference;
 	ntrace->afull[ntrace->afull_count].full = true;
 	ntrace->afull_count++;
 }
@@ -336,7 +336,7 @@ static int xuantie_ntrace__queue_aux_fragment(struct perf_session *session,
 	 *
 	 * FIXME: clearify how to connect an aux event to auxtrace event?
 	 */
-	if (xuantie_ntrace_get_afull(auxtrace_event->idx, ntrace))
+	if (xuantie_ntrace_get_afull(auxtrace_event->reference, ntrace))
 		return 1;
 
 	if (aux_event->flags & PERF_AUX_FLAG_OVERWRITE) {
@@ -380,7 +380,7 @@ static int xuantie_ntrace__queue_aux_fragment(struct perf_session *session,
 			return err;
 
 		if ((aux_offset + aux_size) == (auxtrace_event->offset + auxtrace_event->size))
-			xuantie_ntrace_set_afull(auxtrace_event->idx, ntrace);
+			xuantie_ntrace_set_afull(auxtrace_event->reference, ntrace);
 
 		return 0;
 	}
