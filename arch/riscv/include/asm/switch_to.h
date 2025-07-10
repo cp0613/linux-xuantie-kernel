@@ -106,7 +106,7 @@ do {							\
 	if (has_xuantie_csr_ext())				\
 		__switch_to_xuantie_csr_ext(__prev, __next);	\
 	if (has_dtso()) 				\
-		__switch_to_dtso(__prev, __next);	\
+		dtso_sched_in(__next);	\
 	__switch_to_envcfg(__next);			\
 	qos_sched_in(__next);				\
 	((last) = __switch_to(__prev, __next));		\

@@ -28,20 +28,20 @@ static __always_inline bool has_ztso(void)
 static inline bool dtso_is_enabled(void)
 {
 	if (has_dtso())
-		return csr_read(CSR_SENVCFG) & ENVCFG_DTSO;
+		return csr_read(CSR_ENVCFG) & ENVCFG_DTSO;
 	return 0;
 }
 
 static inline void dtso_disable(void)
 {
 	if (has_dtso() && !has_ztso())
-		csr_clear(CSR_SENVCFG, ENVCFG_DTSO);
+		csr_clear(CSR_ENVCFG, ENVCFG_DTSO);
 }
 
 static inline void dtso_enable(void)
 {
 	if (has_dtso() && !has_ztso())
-		csr_set(CSR_SENVCFG, ENVCFG_DTSO);
+		csr_set(CSR_ENVCFG, ENVCFG_DTSO);
 }
 
 static inline unsigned long get_memory_consistency_model(
@@ -56,31 +56,17 @@ static inline void set_memory_consitency_model(struct task_struct *task,
 	task->thread.memory_consistency_model = model;
 }
 
-static inline void dtso_restore(struct task_struct *task)
+static inline void dtso_sched_in(struct task_struct *next)
 {
-	unsigned long cur_model = get_memory_consistency_model(task);
+	unsigned long next_model = get_memory_consistency_model(next);
 
-	if (cur_model == RISCV_MEMORY_CONSISTENCY_MODEL_TSO)
+	if (next_model == RISCV_MEMORY_CONSISTENCY_MODEL_TSO) {
+		next->thread_info.envcfg |= ENVCFG_DTSO;
 		dtso_enable();
-	else
+	} else {
+		next->thread_info.envcfg &= ~ENVCFG_DTSO;
 		dtso_disable();
-}
-
-static inline void __switch_to_dtso(struct task_struct *prev,
-				    struct task_struct *next)
-{
-	struct pt_regs *regs;
-
-	regs = task_pt_regs(prev);
-
-	/*
-	 * We don't need to save the DTSO bit, because we don't expect it to
-	 * change. So any mechanism that changes the DTSO bit, needs to take
-	 * care to write to task->memory_consistency_model (and reschedule
-	 * all threads of the process).
-	 */
-
-	dtso_restore(next);
+	}
 }
 
 #else /* ! CONFIG_RISCV_ISA_SSDTSO */
@@ -89,8 +75,7 @@ static __always_inline bool has_dtso(void) { return false; }
 static __always_inline bool dtso_is_enabled(void) { return false; }
 #define dtso_disable() do { } while (0)
 #define dtso_enable() do { } while (0)
-#define dtso_restore(task) do { } while (0)
-#define __switch_to_dtso(prev, next) do { } while (0)
+#define dtso_sched_in(next) do { } while (0)
 
 #endif /* CONFIG_RISCV_ISA_SSDTSO */
 
