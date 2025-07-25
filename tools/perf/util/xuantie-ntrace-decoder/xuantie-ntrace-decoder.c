@@ -574,10 +574,25 @@ xt_trace_analyze_i_cnt_vs_hist(struct perf_session *session,
 		if (xt_trace_is_condition_branch_insn(insn_len, insn_value)) {
 			int32_t condition = 0;
 
-			// get one hist
-			condition = get_one_hist();
-			if (condition < 0)
-				goto error_end;
+			/*
+			 * If the last insn is a condition branch in message ProgramCorrection,
+			 * HIST may records or not records the condition.
+			 */
+			if (insn_cnt == (insn_len/2)) {
+				if (get_hist_count())
+					condition = get_one_hist();
+				else
+					condition = false;
+			} else {
+				// get one hist
+				condition = get_one_hist();
+				if (condition < 0) {
+					if (insn_cnt == (insn_len/2))
+						condition = false;
+					else
+						goto error_end;
+				}
+			}
 
 			// if condition == true, create new address range
 			if (condition != 0) {

@@ -142,7 +142,7 @@ Parameters Detail:
                                  // instructions and all
 				 // ntrace messages
 
-	"perf script" is equal to "perf script --itrace=n4"
+	"perf script" is equal to "perf script --itrace=n2"
 
 
 NOTE: In perf script, we analyze the address ranges information between
