@@ -439,7 +439,7 @@ static int xuantie_ntrace_event_add(struct perf_event *event, int flags)
 	if (flags & PERF_EF_START) {
 		buf = perf_aux_output_begin(&xuantie_ntrace_pmu.handle, event);
 		if (!buf) {
-			pr_info("%s:%d perf_aux_output_begin failed\n", __func__, __LINE__);
+			pr_warn_once("%s:%d perf_aux_output_begin failed.\n", __func__, __LINE__);
 			event->hw.state = PERF_HES_STOPPED;
 			goto error_end;
 		}
@@ -557,7 +557,7 @@ static void xuantie_ntrace_event_del(struct perf_event *event, int flags)
 
 	/* If the aux buf space will insufficient, ignoring tail data */
 	if ((trace_data_section0_size + trace_data_section1_size + sizeof(struct xuantie_saved_conifg)) > (buf->length - buf->pos)) {
-		pr_info("Insufficient space in aux map buf, ignoring tail data\n");
+		pr_info_once("Insufficient space in aux map buf, ignoring tail data default.\n");
 		perf_aux_output_skip(&xuantie_ntrace_pmu.handle, buf->length - buf->pos);
 		buf->pos = 0;
 	}
