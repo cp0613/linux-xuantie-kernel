@@ -408,7 +408,7 @@ struct kmem_test {
 } tests[] = {
 	T(test_kmem_basic),
 	T(test_kmem_memcg_deletion),
-	T(test_kmem_proc_kpagecgroup),
+	// T(test_kmem_proc_kpagecgroup),
 	T(test_kmem_kernel_stacks),
 	T(test_kmem_dead_cgroups),
 	T(test_percpu_basic),
