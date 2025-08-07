@@ -15,6 +15,9 @@
 #define PTRACE_GETFDPIC_EXEC	0
 #define PTRACE_GETFDPIC_INTERP	1
 
+/* Maximum number of hardware breakpoints supported */
+#define HW_BP_NUM_MAX 16
+
 #if __riscv_xlen == 64
 typedef __u64 xlen_t;
 #elif __riscv_xlen == 32
@@ -163,12 +166,12 @@ struct user_cfi_state {
 };
 
 struct user_hwdebug_state {
-	__u64 dbg_info;
+	__u64 dbg_slots;
 	struct {
 		__u64 addr;
 		__u64 type;
 		__u64 len;
-	} dbg_regs[16];
+	} dbg_regs[HW_BP_NUM_MAX];
 };
 
 #endif /* __ASSEMBLY__ */

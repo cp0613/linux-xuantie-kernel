@@ -265,9 +265,6 @@ struct arch_hw_breakpoint {
 	unsigned long tdata3;
 };
 
-/* Maximum number of hardware breakpoints supported */
-#define HW_BP_NUM_MAX 32
-
 struct perf_event_attr;
 struct notifier_block;
 struct perf_event;

@@ -284,9 +284,11 @@ static int hw_break_get(struct task_struct *target,
 			struct membuf to)
 {
 	/* send total number of h/w debug triggers */
-	u64 count = hw_breakpoint_slots(regset->core_note_type);
+	struct user_hwdebug_state hw_state;
 
-	membuf_write(&to, &count, sizeof(count));
+	hw_state.dbg_slots = hw_breakpoint_slots(regset->core_note_type);
+	membuf_write(&to, &hw_state, sizeof(hw_state));
+
 	return 0;
 }
 
@@ -367,10 +369,13 @@ static int hw_break_setup_trigger(struct task_struct *target, u64 addr,
 
 	bp = register_user_hw_breakpoint(&attr, ptrace_hbptriggered,
 					 NULL, target);
-	if (IS_ERR(bp))
+	if (IS_ERR(bp)) {
+		pr_err("%s failed! ret=%ld\n", __func__, PTR_ERR(bp));
 		return PTR_ERR(bp);
+	}
 
 	target->thread.ptrace_bps[idx] = bp;
+
 	return 0;
 }
 
@@ -379,7 +384,7 @@ static int hw_break_set(struct task_struct *target,
 			unsigned int pos, unsigned int count,
 			const void *kbuf, const void __user *ubuf)
 {
-	int ret, idx = 0, offset, limit;
+	int ret, idx = 0, offset, limit, dbg_slots;
 	u64 addr;
 	u64 type;
 	u64 size;
@@ -388,6 +393,8 @@ static int hw_break_set(struct task_struct *target,
 #define PTRACE_HBP_TYPE_SZ	sizeof(u64)
 #define PTRACE_HBP_SIZE_SZ	sizeof(u64)
 
+	dbg_slots = hw_breakpoint_slots(regset->core_note_type);
+
 	/* Resource info and pad */
 	offset = offsetof(struct user_hwdebug_state, dbg_regs);
 	user_regset_copyin_ignore(&pos, &count, &kbuf, &ubuf, 0, offset);
@@ -395,8 +402,9 @@ static int hw_break_set(struct task_struct *target,
 	/* trigger settings */
 	limit = regset->n * regset->size;
 	while (count && offset < limit) {
-		if (count < PTRACE_HBP_ADDR_SZ)
+		if (count <= PTRACE_HBP_ADDR_SZ)
 			return -EINVAL;
+
 		ret = user_regset_copyin(&pos, &count, &kbuf, &ubuf, &addr,
 					 offset, offset + PTRACE_HBP_ADDR_SZ);
 		if (ret)
@@ -404,8 +412,6 @@ static int hw_break_set(struct task_struct *target,
 
 		offset += PTRACE_HBP_ADDR_SZ;
 
-		if (!count)
-			break;
 		ret = user_regset_copyin(&pos, &count, &kbuf, &ubuf, &type,
 					 offset, offset + PTRACE_HBP_TYPE_SZ);
 		if (ret)
@@ -425,6 +431,11 @@ static int hw_break_set(struct task_struct *target,
 			return ret;
 
 		idx++;
+
+		if (idx >= dbg_slots) {
+			pr_warn("%s: The number of hw+wp sets exceeds dbg_slots, only the first %d are valid.\n", __func__, dbg_slots);
+			break;
+		}
 	}
 
 	return 0;
