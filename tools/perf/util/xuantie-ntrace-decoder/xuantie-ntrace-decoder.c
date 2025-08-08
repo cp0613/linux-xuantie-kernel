@@ -1008,7 +1008,7 @@ xt_trace_get_start_and_full_addr(struct xt_trace_program_flow_node *node,
 		break;
 	}
 
-	node->full_addr = sign_extend64(node->full_addr, rv_svmode_int);
+	node->full_addr = sign_extend64(node->full_addr, rv_svmode_int - 1);
 	if (!unknown_tcode)
 		xt_trace_get_dso_and_symbol_for_node(node, session, buffer);
 
