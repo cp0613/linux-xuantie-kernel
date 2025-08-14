@@ -103,6 +103,8 @@ struct thread_struct {
 #endif
 #ifdef CONFIG_HAVE_HW_BREAKPOINT
 	struct perf_event *ptrace_bps[HW_BP_NUM_MAX];
+	struct arch_hw_breakpoint hbp_break[HW_BP_NUM_MAX];
+	struct arch_hw_breakpoint hbp_watch[HW_BP_NUM_MAX];
 #endif
 #ifdef CONFIG_DYNAMIC_MEMORY_CONSISTENCY_MODEL
 	unsigned long memory_consistency_model;

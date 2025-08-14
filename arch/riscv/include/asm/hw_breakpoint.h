@@ -255,9 +255,9 @@ enum {
 	} while (0)
 
 struct arch_hw_breakpoint {
-	unsigned long address;
+	unsigned long addr;
+	unsigned long type;
 	unsigned long len;
-	unsigned int type;
 
 	/* Trigger configuration data */
 	unsigned long tdata1;

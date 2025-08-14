@@ -276,7 +276,7 @@ static void ptrace_hbptriggered(struct perf_event *bp,
 {
 	struct arch_hw_breakpoint *bkpt = counter_arch_bp(bp);
 
-	force_sig_fault(SIGTRAP, TRAP_HWBKPT, (void __user *)bkpt->address);
+	force_sig_fault(SIGTRAP, TRAP_HWBKPT, (void __user *)bkpt->addr);
 }
 
 static int hw_break_get(struct task_struct *target,
@@ -292,23 +292,22 @@ static int hw_break_get(struct task_struct *target,
 	return 0;
 }
 
-static inline int hw_break_empty(u64 addr, u64 type, u64 size)
+static inline int hw_break_empty(u64 addr, u64 type, u64 len)
 {
 	/* TODO: for now adjusted to current riscv-gdb behavior */
-	return (!addr && !size);
+	return (!addr && !len);
 }
 
-static int hw_break_setup_trigger(struct task_struct *target, u64 addr,
-				  u64 type, u64 size, int idx)
+static int hw_break_cache_trigger(struct task_struct *target, u32 note_type,
+				  u64 addr, u64 type, u64 len, u32 idx)
 {
-	struct perf_event *bp = ERR_PTR(-EINVAL);
-	struct perf_event_attr attr;
-	u32 bp_type;
+	struct arch_hw_breakpoint *bp;
+	u64 bp_type;
 	u64 bp_len;
 
-	if (!hw_break_empty(addr, type, size)) {
-		/* bp size: gdb to kernel */
-		switch (size) {
+	if (!hw_break_empty(addr, type, len)) {
+		/* bp len: gdb to kernel */
+		switch (len) {
 		case 2:
 			bp_len = HW_BREAKPOINT_LEN_2;
 			break;
@@ -319,7 +318,7 @@ static int hw_break_setup_trigger(struct task_struct *target, u64 addr,
 			bp_len = HW_BREAKPOINT_LEN_8;
 			break;
 		default:
-			pr_warn("%s: unsupported size: %llu\n", __func__, size);
+			pr_warn("%s: unsupported len: %llu\n", __func__, len);
 			return -EINVAL;
 		}
 
@@ -343,29 +342,44 @@ static int hw_break_setup_trigger(struct task_struct *target, u64 addr,
 		}
 	}
 
+	if (note_type == NT_RISCV_HW_BREAK)
+		bp = &(target->thread.hbp_break[idx]);
+	if (note_type == NT_RISCV_HW_WATCH)
+		bp = &(target->thread.hbp_watch[idx]);
+
+	bp->addr = addr;
+	bp->type = bp_type;
+	bp->len = bp_len;
+
+	return 0;
+}
+
+static int hw_break_register_trigger(struct task_struct *target, u32 note_type,
+				  u64 addr, u64 type, u64 len, u32 idx)
+{
+	struct perf_event *bp = ERR_PTR(-EINVAL);
+	struct perf_event_attr attr;
+
 	bp = target->thread.ptrace_bps[idx];
 	if (bp) {
 		attr = bp->attr;
 
-		if (hw_break_empty(addr, type, size)) {
+		if (hw_break_empty(addr, type, len)) {
 			attr.disabled = 1;
 		} else {
-			attr.bp_type = bp_type;
 			attr.bp_addr = addr;
-			attr.bp_len = bp_len;
+			attr.bp_type = type;
+			attr.bp_len = len;
 			attr.disabled = 0;
 		}
 
 		return modify_user_hw_breakpoint(bp, &attr);
 	}
 
-	if (hw_break_empty(addr, type, size))
-		return 0;
-
 	ptrace_breakpoint_init(&attr);
-	attr.bp_type = bp_type;
 	attr.bp_addr = addr;
-	attr.bp_len = bp_len;
+	attr.bp_type = type;
+	attr.bp_len = len;
 
 	bp = register_user_hw_breakpoint(&attr, ptrace_hbptriggered,
 					 NULL, target);
@@ -379,12 +393,41 @@ static int hw_break_setup_trigger(struct task_struct *target, u64 addr,
 	return 0;
 }
 
+static int hw_break_setup_trigger(struct task_struct *target)
+{
+	u32 i, idx = 0;
+
+	flush_ptrace_hw_breakpoint(target);
+
+	for (i = 0; i < HW_BP_NUM_MAX; i++) {
+		if (target->thread.hbp_break[i].addr) {
+			hw_break_register_trigger(target, NT_RISCV_HW_BREAK,
+				target->thread.hbp_break[i].addr,
+				target->thread.hbp_break[i].type,
+				target->thread.hbp_break[i].len, idx);
+			idx++;
+		}
+	}
+
+	for (i = 0; i < HW_BP_NUM_MAX; i++) {
+		if (target->thread.hbp_watch[i].addr) {
+			hw_break_register_trigger(target, NT_RISCV_HW_WATCH,
+				target->thread.hbp_watch[i].addr,
+				target->thread.hbp_watch[i].type,
+				target->thread.hbp_watch[i].len, idx);
+			idx++;
+		}
+	}
+
+	return idx;
+}
+
 static int hw_break_set(struct task_struct *target,
 			const struct user_regset *regset,
 			unsigned int pos, unsigned int count,
 			const void *kbuf, const void __user *ubuf)
 {
-	int ret, idx = 0, offset, limit, dbg_slots;
+	int ret, idx = 0, offset, limit, note_type;
 	u64 addr;
 	u64 type;
 	u64 size;
@@ -393,7 +436,7 @@ static int hw_break_set(struct task_struct *target,
 #define PTRACE_HBP_TYPE_SZ	sizeof(u64)
 #define PTRACE_HBP_SIZE_SZ	sizeof(u64)
 
-	dbg_slots = hw_breakpoint_slots(regset->core_note_type);
+	note_type = regset->core_note_type; // NT_RISCV_HW_BREAK(0x904) | NT_RISCV_HW_WATCH(0x905)
 
 	/* Resource info and pad */
 	offset = offsetof(struct user_hwdebug_state, dbg_regs);
@@ -426,17 +469,14 @@ static int hw_break_set(struct task_struct *target,
 
 		offset += PTRACE_HBP_SIZE_SZ;
 
-		ret = hw_break_setup_trigger(target, addr, type, size, idx);
+		ret = hw_break_cache_trigger(target, note_type, addr, type, size, idx);
 		if (ret)
 			return ret;
 
 		idx++;
-
-		if (idx >= dbg_slots) {
-			pr_warn("%s: The number of hw+wp sets exceeds dbg_slots, only the first %d are valid.\n", __func__, dbg_slots);
-			break;
-		}
 	}
+
+	hw_break_setup_trigger(target);
 
 	return 0;
 }
