@@ -1754,7 +1754,8 @@ xt_trace_filter_config(struct xt_trace_encoder_control_info *encoder_info,
 		tr_te_filter_i_control);
 	if (read_value_tmp == -1)
 		return -1;
-	if (read_value_tmp != tr_te_filter_i_control) {
+	/* For Perf Trace, only comparator1 will be enabled, we will only care bit[7:0] */
+	if ((read_value_tmp & 0xff) != (tr_te_filter_i_control & 0xff)) {
 		// msg
 		sprintf(str,
 			"Config trTeFilteriControl 0x%x for trace encoder(0x%llx) get 0x%x.\n",
