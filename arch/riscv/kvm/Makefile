@@ -18,6 +18,7 @@ kvm-y += vcpu.o
 kvm-y += vcpu_exit.o
 kvm-y += vcpu_fp.o
 kvm-y += vcpu_vector.o
+kvm-y += vcpu_matrix.o
 kvm-y += vcpu_insn.o
 kvm-y += vcpu_onereg.o
 kvm-y += vcpu_switch.o

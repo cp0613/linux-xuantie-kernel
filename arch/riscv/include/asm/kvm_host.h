@@ -151,6 +151,7 @@ struct kvm_cpu_context {
 	unsigned long hstatus;
 	union __riscv_fp_state fp;
 	struct __riscv_v_ext_state vector;
+	struct __riscv_m_ext_state mstate;
 };
 
 struct kvm_vcpu_csr {
