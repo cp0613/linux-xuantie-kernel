@@ -285,6 +285,12 @@ config SAMPLE_KMEMLEAK
           Build a sample program which have explicitly leaks memory to test
           kmemleak
 
+config SAMPLE_RISCV_QOS
+	tristate "Test RISCV QOS srmcfg"
+	depends on SMP
+	help
+	  Test RISCV QOS srmcfg.
+
 source "samples/rust/Kconfig"
 
 endif # SAMPLES
