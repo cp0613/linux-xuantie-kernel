@@ -43,8 +43,7 @@ static int arch_smp_setup_sbi_shmem(unsigned int cpu)
 	shmem_pa = __pa(dbtr_shmem);
 
 	ret = sbi_ecall(SBI_EXT_DBTR, SBI_EXT_DBTR_SETUP_SHMEM,
-			lower_32_bits(shmem_pa), upper_32_bits(shmem_pa),
-			0, 0, 0, 0);
+			shmem_pa, 0, 0, 0, 0, 0);
 
 	if (ret.error) {
 		switch (ret.error) {
