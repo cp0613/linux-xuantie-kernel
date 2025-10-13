@@ -157,7 +157,7 @@ struct sbi_dbtr_id_msg {
 	unsigned long idx;
 };
 
-struct sbi_dbtr_shmem_entry {
+union sbi_dbtr_shmem_entry {
 	struct sbi_dbtr_data_msg data;
 	struct sbi_dbtr_id_msg id;
 };

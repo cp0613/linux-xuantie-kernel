@@ -20,7 +20,7 @@ static DEFINE_PER_CPU(unsigned long, ecall_lock_flags);
 static DEFINE_PER_CPU(raw_spinlock_t, ecall_lock);
 
 /* Per-cpu shared memory between S and M mode */
-static struct sbi_dbtr_shmem_entry __percpu *sbi_dbtr_shmem;
+static union sbi_dbtr_shmem_entry __percpu *sbi_dbtr_shmem;
 
 /* number of debug triggers on this cpu . */
 static int dbtr_total_num __ro_after_init;
@@ -29,7 +29,7 @@ static int dbtr_init __ro_after_init;
 
 static int arch_smp_setup_sbi_shmem(unsigned int cpu)
 {
-	struct sbi_dbtr_shmem_entry *dbtr_shmem;
+	union sbi_dbtr_shmem_entry *dbtr_shmem;
 	unsigned long shmem_pa;
 	struct sbiret ret;
 	int rc;
@@ -416,7 +416,7 @@ int hw_breakpoint_exceptions_notify(struct notifier_block *unused,
 int arch_install_hw_breakpoint(struct perf_event *event)
 {
 	struct arch_hw_breakpoint *bp = counter_arch_bp(event);
-	struct sbi_dbtr_shmem_entry *shmem = this_cpu_ptr(sbi_dbtr_shmem);
+	union sbi_dbtr_shmem_entry *shmem = this_cpu_ptr(sbi_dbtr_shmem);
 	struct sbi_dbtr_data_msg *xmit;
 	struct sbi_dbtr_id_msg *recv;
 	struct perf_event **slot;
@@ -524,7 +524,7 @@ EXPORT_SYMBOL_GPL(arch_enable_hw_breakpoint);
 void arch_update_hw_breakpoint(struct perf_event *event)
 {
 	struct arch_hw_breakpoint *bp = counter_arch_bp(event);
-	struct sbi_dbtr_shmem_entry *shmem = this_cpu_ptr(sbi_dbtr_shmem);
+	union sbi_dbtr_shmem_entry *shmem = this_cpu_ptr(sbi_dbtr_shmem);
 	struct sbi_dbtr_data_msg *xmit;
 	struct perf_event **slot;
 	struct sbiret ret;
