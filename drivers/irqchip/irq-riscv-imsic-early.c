@@ -208,7 +208,7 @@ static int __init imsic_early_probe(struct fwnode_handle *fwnode)
 	 * because this affects IPI and the masking/unmasking of
 	 * virtual IPIs is done via generic IPI-Mux
 	 */
-	cpuhp_setup_state(CPUHP_AP_ONLINE_DYN,
+	cpuhp_setup_state(CPUHP_AP_IRQ_RISCV_IMSIC_STARTING,
 			  "irqchip/riscv/imsic:starting",
 			  imsic_starting_cpu, imsic_dying_cpu);
 
