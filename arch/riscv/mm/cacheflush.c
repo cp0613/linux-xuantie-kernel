@@ -4,6 +4,7 @@
  */
 
 #include <linux/of.h>
+#include <linux/kgdb.h>
 #include <asm/cacheflush.h>
 
 #ifdef CONFIG_SMP
@@ -21,6 +22,10 @@ void flush_icache_all(void)
 
 	if (IS_ENABLED(CONFIG_RISCV_SBI) && !riscv_use_ipi_for_rfence())
 		sbi_remote_fence_i(NULL);
+#ifdef CONFIG_KGDB
+	else if (IS_ENABLED(CONFIG_RISCV_SBI) && kgdb_io_module_registered)
+		sbi_remote_fence_i(NULL);
+#endif
 	else
 		on_each_cpu(ipi_remote_fence_i, NULL, 1);
 }
