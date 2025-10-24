@@ -12,8 +12,7 @@
 #endif
 
 #ifndef pcibios_assign_all_busses
-/* For bootloaders that do not initialize the PCI bus */
-#define pcibios_assign_all_busses() 1
+#define pcibios_assign_all_busses()	pci_has_flag(PCI_REASSIGN_ALL_BUS)
 #endif
 
 /* Enable generic resource mapping code in drivers/pci/ */
