@@ -40,17 +40,10 @@ int dtso_set_memory_consistency_model(unsigned long arg)
 	if (new_model == RISCV_MEMORY_CONSISTENCY_MODEL_WMO)
 		return -EINVAL;
 
-	/* Set the new model in the task struct. */
+	/* Set the new model(TSO) in the task struct. */
 	set_memory_consitency_model(current, new_model);
-
-	/*
-	 * We need to reschedule all threads of the current process.
-	 * Let's do this by rescheduling all CPUs.
-	 * This is stricter than necessary, but since this call is
-	 * not expected to happen frequently the impact is low.
-	 */
-	for_each_cpu(cpu, cpu_online_mask)
-		smp_send_reschedule(cpu);
+	current->thread_info.envcfg |= ENVCFG_DTSO;
+	dtso_enable();
 
 	return 0;
 }
