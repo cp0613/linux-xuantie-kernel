@@ -13,6 +13,167 @@
 ENTRY(__asm_copy_to_user)
 ENTRY(__asm_copy_from_user)
 
+#ifdef CONFIG_RISCV_EFFICIENT_UNALIGNED_ACCESS
+
+	/* Enable access to user memory */
+	li t6, SR_SUM
+	csrs CSR_STATUS, t6
+
+	/*
+	 * Save the terminal address which will be used to compute the number
+	 * of bytes copied in case of a fixup exception.
+	 */
+	add	t5, a0, a2
+
+	/*
+	 * Register allocation for code below:
+	 * a0 - start of uncopied dst
+	 * a1 - start of uncopied src
+	 * a2 - size
+	 * t0 - end of uncopied dst
+	 */
+	mv      t0, t5          /* t0 = end of dst */
+
+	/* If length < 8, go to byte copy */
+	li      a3, 8
+	bltu    a2, a3, .L_copy_by_byte
+
+	/* Handle lengths >= 8 */
+	srli    t4, a2, 7       /* t4 = len / 128 */
+	bnez    t4, .L_len_ge_128
+
+	/* Check for [64, 128) */
+	srli    t4, a2, 6       /* t4 = len / 64 */
+	beqz    t4, .L_len_less_64
+
+.L_handle_64_to_127:
+	andi    a2, a2, 63      /* remaining after 64-byte block */
+
+	fixup ld a4, 0(a1), 10f
+	fixup ld a5, 8(a1), 10f
+	fixup ld a6, 16(a1), 10f
+	fixup ld a7, 24(a1), 10f
+	fixup sd a4, 0(a0), 10f
+	fixup sd a5, 8(a0), 10f
+	fixup sd a6, 16(a0), 10f
+	fixup sd a7, 24(a0), 10f
+
+	fixup ld a4, 32(a1), 10f
+	fixup ld a5, 40(a1), 10f
+	fixup ld a6, 48(a1), 10f
+	fixup ld a7, 56(a1), 10f
+	fixup sd a4, 32(a0), 10f
+	fixup sd a5, 40(a0), 10f
+	fixup sd a6, 48(a0), 10f
+	fixup sd a7, 56(a0), 10f
+	addi    a1, a1, 64
+	addi    a0, a0, 64
+	j       .L_len_less_64
+
+.L_len_ge_128:
+	andi    a2, a2, 127     /* tail after full 128-byte blocks */
+.L_loop_128:
+	fixup ld a4, 0(a1), 10f
+	fixup ld a5, 8(a1), 10f
+	fixup ld a6, 16(a1), 10f
+	fixup ld a7, 24(a1), 10f
+	fixup sd a4, 0(a0), 10f
+	fixup sd a5, 8(a0), 10f
+	fixup sd a6, 16(a0), 10f
+	fixup sd a7, 24(a0), 10f
+
+	fixup ld a4, 32(a1), 10f
+	fixup ld a5, 40(a1), 10f
+	fixup ld a6, 48(a1), 10f
+	fixup ld a7, 56(a1), 10f
+	fixup sd a4, 32(a0), 10f
+	fixup sd a5, 40(a0), 10f
+	fixup sd a6, 48(a0), 10f
+	fixup sd a7, 56(a0), 10f
+
+	addi    a1, a1, 64
+	addi    a0, a0, 64
+
+	fixup ld a4, 0(a1), 10f
+	fixup ld a5, 8(a1), 10f
+	fixup ld a6, 16(a1), 10f
+	fixup ld a7, 24(a1), 10f
+	fixup sd a4, 0(a0), 10f
+	fixup sd a5, 8(a0), 10f
+	fixup sd a6, 16(a0), 10f
+	fixup sd a7, 24(a0), 10f
+
+	fixup ld a4, 32(a1), 10f
+	fixup ld a5, 40(a1), 10f
+	fixup ld a6, 48(a1), 10f
+	fixup ld a7, 56(a1), 10f
+	fixup sd a4, 32(a0), 10f
+	fixup sd a5, 40(a0), 10f
+	fixup sd a6, 48(a0), 10f
+	fixup sd a7, 56(a0), 10f
+
+	addi    a1, a1, 64
+	addi    a0, a0, 64
+
+	addi    t4, t4, -1
+	bnez    t4, .L_loop_128
+
+.L_len_less_64:
+	srli    t4, a2, 4       /* t4 = len / 16 */
+	beqz    t4, .L_len_less_16
+	andi    a2, a2, 15
+.L_loop_16:
+	fixup ld a4, 0(a1), 10f
+	fixup ld a5, 8(a1), 10f
+	fixup sd a4, 0(a0), 10f
+	fixup sd a5, 8(a0), 10f
+	addi    a1, a1, 16
+	addi    a0, a0, 16
+	addi    t4, t4, -1
+	bnez    t4, .L_loop_16
+
+.L_len_less_16:
+	srli    t4, a2, 3       /* t4 = len / 8 */
+	beqz    t4, .L_len_less_8
+	andi    a2, a2, 7
+	fixup ld a4, 0(a1), 10f
+	fixup sd a4, 0(a0), 10f
+	addi a1, a1, 8
+	addi a0, a0, 8
+
+
+.L_len_less_8:
+	srli    t4, a2, 2       /* t4 = len / 4 */
+	beqz    t4, .L_copy_by_byte
+	andi    a2, a2, 3
+	fixup lw a4, 0(a1), 10f
+	fixup sw a4, 0(a0), 10f
+	addi a1, a1, 4
+	addi a0, a0, 4
+
+.L_copy_by_byte:
+	beqz    a2, .L_return
+.L_byte_loop:
+	fixup lb a4, 0(a1), 10f
+	fixup sb a4, 0(a0), 10f
+	addi a1, a1, 1
+	addi a0, a0, 1
+
+	addi    a2, a2, -1
+	bnez    a2, .L_byte_loop
+
+.L_return:
+	csrc CSR_STATUS, t6
+	li   a0, 0
+	ret
+
+10:     /* Fixup handler */
+	csrc CSR_STATUS, t6
+	sub  a0, t5, a0   /* return number of bytes NOT copied */
+	ret
+
+#else
+
 	/* Enable access to user memory */
 	li t6, SR_SUM
 	csrs CSR_STATUS, t6
@@ -181,6 +342,7 @@ ENTRY(__asm_copy_from_user)
 	csrc CSR_STATUS, t6
 	sub a0, t5, a0
 	ret
+#endif
 ENDPROC(__asm_copy_to_user)
 ENDPROC(__asm_copy_from_user)
 EXPORT_SYMBOL(__asm_copy_to_user)
