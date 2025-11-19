@@ -90,7 +90,7 @@ _save_context:
 	 * Clear supervisor double trap bit as all trap context is saved and we
 	 * can handle another one
 	 */
-	li t0, SR_SUM | SR_FS_VS | SR_SDT
+	li t0, SR_SUM | SR_FS | SR_SDT
 
 	csrrc s1, CSR_STATUS, t0
 	REG_S s1, PT_STATUS(sp)

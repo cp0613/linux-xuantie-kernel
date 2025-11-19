@@ -191,7 +191,7 @@ static __always_inline void riscv_v_enable(void)
 
 static __always_inline void riscv_v_disable(void)
 {
-	csr_clear(CSR_SSTATUS, SR_VS | SR_VS_THEAD);
+//	csr_clear(CSR_SSTATUS, SR_VS | SR_VS_THEAD);
 }
 
 static __always_inline void __vstate_csr_save(struct __riscv_v_ext_state *dest)
@@ -331,10 +331,9 @@ static inline void __riscv_v_vstate_discard(void)
 		"vmv.v.i	v8, -1\n\t"
 		"vmv.v.i	v16, -1\n\t"
 		"vmv.v.i	v24, -1\n\t"
-		"vsetvl		%0, x0, %1\n\t"
 		".option pop\n\t",
 		/* FIXME: Do real vstate discard as above! */
-		__nops(6), THEAD_VENDOR_ID,
+		__nops(5), THEAD_VENDOR_ID,
 		ERRATA_THEAD_VECTOR, CONFIG_ERRATA_THEAD_VECTOR)
 		: "=&r" (vl) : "r" (vtype_inval) : "memory");
 	riscv_v_disable();
