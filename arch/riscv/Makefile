@@ -238,15 +238,15 @@ rv64ilp32_defconfig:
 
 PHONY += xuantie_defconfig
 xuantie_defconfig:
-	$(Q)$(MAKE) -f $(srctree)/Makefile defconfig 12HZ.config thp.config fs.config rv64_crypto.config
+	$(Q)$(MAKE) -f $(srctree)/Makefile defconfig bench.config cgroup.config kvm_host.config rv64_crypto.config rv64_perf.config vdpa.config vfio.config virtio_iommu.config sched.config HZ_12.config rv64_nonportable.config
 
 PHONY += xuantie_debug_defconfig
 xuantie_debug_defconfig:
-	$(Q)$(MAKE) -f $(srctree)/Makefile defconfig thp.config fs.config rv64_crypto.config xt_debug.config ftrace.config ebpf.config kdump.config sched.config
+	$(Q)$(MAKE) -f $(srctree)/Makefile defconfig thp.config fs.config xt_debug.config ftrace.config ebpf.config kdump.config sched.config
 
 PHONY += xuantie_rv32_defconfig
 xuantie_rv32_defconfig:
-	$(Q)$(MAKE) -f $(srctree)/Makefile defconfig 32-bit.config 12HZ.config fs.config
+	$(Q)$(MAKE) -f $(srctree)/Makefile defconfig 32-bit.config HZ_12.config fs.config
 
 PHONY += xuantie_rv32_debug_defconfig
 xuantie_rv32_debug_defconfig:
