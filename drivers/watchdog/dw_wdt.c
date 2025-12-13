@@ -28,7 +28,9 @@
 #include <linux/pm.h>
 #include <linux/reset.h>
 #include <linux/watchdog.h>
+#ifdef CONFIG_TH1520_REBOOTMODE
 #include <linux/firmware/xuantie/th1520_event.h>
+#endif
 
 #define WDOG_CONTROL_REG_OFFSET		    0x00
 #define WDOG_CONTROL_REG_WDT_EN_MASK	    0x01
@@ -370,8 +372,9 @@ static irqreturn_t dw_wdt_irq(int irq, void *devid)
 	val = readl(dw_wdt->regs + WDOG_INTERRUPT_STATUS_REG_OFFSET);
 	if (!val)
 		return IRQ_NONE;
+#ifdef CONFIG_TH1520_REBOOTMODE
 	th1520_event_set_rebootmode(TH1520_EVENT_SW_WATCHDOG);
-
+#endif
 	watchdog_notify_pretimeout(&dw_wdt->wdd);
 
 	return IRQ_HANDLED;

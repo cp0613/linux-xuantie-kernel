@@ -37,7 +37,9 @@
 #include <linux/context_tracking.h>
 #include <trace/events/error_report.h>
 #include <asm/sections.h>
+#ifdef CONFIG_TH1520_REBOOTMODE
 #include <linux/firmware/xuantie/th1520_event.h>
+#endif
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
