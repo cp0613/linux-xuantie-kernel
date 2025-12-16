@@ -385,6 +385,8 @@ static int imsic_platform_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	imsic_drv_ok = true;
+
 	return imsic_irqdomain_init();
 }
 

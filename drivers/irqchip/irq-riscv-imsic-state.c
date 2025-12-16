@@ -60,6 +60,7 @@ do {						\
 } while (0)
 
 struct imsic_priv *imsic;
+bool imsic_drv_ok;
 
 const struct imsic_global_config *imsic_get_global_config(void)
 {

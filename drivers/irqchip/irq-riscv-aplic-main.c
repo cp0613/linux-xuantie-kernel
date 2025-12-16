@@ -12,6 +12,7 @@
 #include <linux/irqchip/riscv-aplic.h>
 
 #include "irq-riscv-aplic-main.h"
+#include "irq-riscv-imsic-state.h"
 
 void aplic_irq_unmask(struct irq_data *d)
 {
@@ -184,6 +185,11 @@ static int aplic_probe(struct platform_device *pdev)
 	struct resource *res;
 	void __iomem *regs;
 	int rc;
+
+	if (!imsic_drv_ok) {
+		dev_info(&pdev->dev, "Driver imisc not ready, deferring...\n");
+		return -EPROBE_DEFER;
+	}
 
 	/* Map the MMIO registers */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);

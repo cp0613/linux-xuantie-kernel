@@ -66,6 +66,8 @@ struct imsic_priv {
 
 extern struct imsic_priv *imsic;
 
+extern bool imsic_drv_ok;
+
 void __imsic_eix_update(unsigned long base_id,
 			unsigned long num_id, bool pend, bool val);
 
