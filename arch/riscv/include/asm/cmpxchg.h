@@ -430,7 +430,7 @@ no_zawrs:
 	arch_cmpxchg_release((ptr), (o), (n));				\
 })
 
-#ifdef CONFIG_RISCV_ISA_ZACAS
+#if defined(CONFIG_64BIT) && defined(CONFIG_RISCV_ISA_ZACAS) && defined(CONFIG_TOOLCHAIN_HAS_ZACAS)
 
 #define system_has_cmpxchg128()						\
 			riscv_has_extension_unlikely(RISCV_ISA_EXT_ZACAS)

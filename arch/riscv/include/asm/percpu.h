@@ -21,11 +21,13 @@
 				: [val] "r"(val));                             \
 			break;                                                 \
 		case 8:                                                        \
+			if (sizeof(unsigned long) == 8) {	\
 			__asm__ __volatile__(                                  \
-				"amo" #asm_op ".d"                             \
-				" %[ret], %[val], %[ptr]\n"                   \
-				: [ret] "=&r"(ret), [ptr] "+A"(*(u64 *)ptr)    \
-				: [val] "r"(val));                             \
+					"amo" #asm_op ".d"                             \
+					" %[ret], %[val], %[ptr]\n"                   \
+					: [ret] "=&r"(ret), [ptr] "+A"(*(u64 *)ptr)    \
+					: [val] "r"(val));                             \
+			}						\
 			break;                                                 \
 		default:                                                       \
 			ret = 0;                                               \

@@ -973,12 +973,24 @@ void check_unaligned_access(int cpu)
 	if (word_cycles < byte_cycles)
 		speed = RISCV_HWPROBE_MISALIGNED_FAST;
 
+#if defined(CONFIG_64BIT)
 	ratio = div_u64((byte_cycles * 100), word_cycles);
+
 	pr_info("cpu%d: Ratio of byte access time to unaligned word access is %lld.%02lld, unaligned accesses are %s\n",
 		cpu,
 		ratio / 100,
 		ratio % 100,
 		(speed == RISCV_HWPROBE_MISALIGNED_FAST) ? "fast" : "slow");
+#else
+	ratio = div_u64(byte_cycles * 100, (u32)word_cycles);
+
+	u64 ipart = ratio;
+	u32 frac = do_div(ipart, 100);   /* ipart=ratio/100, frac=ratio%100 */
+
+	pr_info("cpu%d: Ratio of byte access time to unaligned word access is %llu.%02u, unaligned accesses are %s\n",
+			cpu, ipart, frac,
+			(speed == RISCV_HWPROBE_MISALIGNED_FAST) ? "fast" : "slow");
+#endif
 
 	per_cpu(misaligned_access_speed, cpu) = speed;
 
