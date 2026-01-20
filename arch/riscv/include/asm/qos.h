@@ -12,14 +12,14 @@
 #include <asm/hwcap.h>
 
 /* cached value of srmcfg csr for each cpu */
-static DEFINE_PER_CPU(u32, cpu_srmcfg);
+DECLARE_PER_CPU(u32, cpu_srmcfg);
 
-static void __qos_sched_in(struct task_struct *task)
+static inline void __switch_to_srmcfg(struct task_struct *next)
 {
 	u32 *cpu_srmcfg_ptr = this_cpu_ptr(&cpu_srmcfg);
 	u32 thread_srmcfg;
 
-	thread_srmcfg = READ_ONCE(task->thread.srmcfg);
+	thread_srmcfg = READ_ONCE(next->thread.srmcfg);
 
 	if (thread_srmcfg != *cpu_srmcfg_ptr) {
 		*cpu_srmcfg_ptr = thread_srmcfg;
@@ -27,14 +27,15 @@ static void __qos_sched_in(struct task_struct *task)
 	}
 }
 
-static inline void qos_sched_in(struct task_struct *task)
+static __always_inline bool has_srmcfg(void)
 {
-	if (riscv_has_extension_likely(RISCV_ISA_EXT_SSQOSID))
-		__qos_sched_in(task);
+	return riscv_has_extension_unlikely(RISCV_ISA_EXT_SSQOSID);
 }
-#else
 
-static inline void qos_sched_in(struct task_struct *task) {}
+#else /* ! CONFIG_RISCV_ISA_SSQOSID  */
+
+static __always_inline bool has_srmcfg(void) { return false; }
+#define __switch_to_srmcfg(__next) do { } while (0)
 
 #endif /* CONFIG_RISCV_ISA_SSQOSID */
 #endif /* _ASM_RISCV_QOS_H */
