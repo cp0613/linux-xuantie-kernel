@@ -138,6 +138,7 @@ enum resctrl_domain_type {
 struct rdt_domain_hdr {
 	struct list_head		list;
 	int				id;
+	enum resctrl_res_level		rid;
 	enum resctrl_domain_type	type;
 	enum resctrl_res_level		rid;
 	struct cpumask			cpu_mask;
@@ -222,6 +223,8 @@ struct rdt_mon_domain {
 	int				cqm_work_cpu;
 };
 
+/* CBQRI uses a more specific alias for the L3 monitor domain. */
+#define rdt_l3_mon_domain	rdt_mon_domain
 
 /**
  * struct resctrl_cache - Cache allocation related data
@@ -279,6 +282,7 @@ struct resctrl_membw {
 	bool				arch_needs_linear;
 	enum membw_throttle_mode	throttle_mode;
 	bool				mba_sc;
+	bool				default_to_min;
 	u32				*mb_map;
 };
 
@@ -339,6 +343,11 @@ struct resctrl_mon {
  * @schema_fmt:		Which format string and parser is used for this schema.
  * @cdp_capable:	Is the CDP feature available on this resource
  */
+/* Monitoring metadata grouped into a sub-struct (used by CBQRI). */
+struct resctrl_mon {
+	u32			num_rmid;
+};
+
 struct rdt_resource {
 	int			rid;
 	bool			alloc_capable;
@@ -435,29 +444,7 @@ u32 resctrl_arch_get_num_closid(struct rdt_resource *r);
 u32 resctrl_arch_system_num_rmid_idx(void);
 int resctrl_arch_update_domains(struct rdt_resource *r, u32 closid);
 
-bool resctrl_enable_mon_event(enum resctrl_event_id eventid, bool any_cpu,
-			      unsigned int binary_bits, void *arch_priv);
-
-bool resctrl_is_mon_event_enabled(enum resctrl_event_id eventid);
-
 bool resctrl_arch_is_evt_configurable(enum resctrl_event_id evt);
-
-static inline bool resctrl_is_mbm_event(enum resctrl_event_id eventid)
-{
-	return (eventid >= QOS_L3_MBM_TOTAL_EVENT_ID &&
-		eventid <= QOS_L3_MBM_LOCAL_EVENT_ID);
-}
-
-u32 resctrl_get_mon_evt_cfg(enum resctrl_event_id eventid);
-
-/* Iterate over all memory bandwidth events */
-#define for_each_mbm_event_id(eventid)				\
-	for (eventid = QOS_L3_MBM_TOTAL_EVENT_ID;		\
-	     eventid <= QOS_L3_MBM_LOCAL_EVENT_ID; eventid++)
-
-/* Iterate over memory bandwidth arrays in domain structures */
-#define for_each_mbm_idx(idx)					\
-	for (idx = 0; idx < QOS_NUM_L3_MBM_EVENTS; idx++)
 
 /**
  * resctrl_arch_mon_event_config_write() - Write the config for an event.

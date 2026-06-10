@@ -27,10 +27,12 @@ cpumask_any_housekeeping(const struct cpumask *mask, int exclude_cpu)
 	unsigned int cpu;
 
 	/* Try to find a CPU that isn't nohz_full to use in preference */
-	if (tick_nohz_full_enabled()) {
+	if (IS_ENABLED(CONFIG_NO_HZ_FULL) && tick_nohz_full_enabled()) {
+#ifdef CONFIG_NO_HZ_FULL
 		cpu = cpumask_any_andnot_but(mask, tick_nohz_full_mask, exclude_cpu);
 		if (cpu < nr_cpu_ids)
 			return cpu;
+#endif
 	}
 
 	return cpumask_any_but(mask, exclude_cpu);

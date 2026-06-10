@@ -131,6 +131,23 @@ static inline int get_cpu_cacheinfo_id(int cpu, int level)
 	return -1;
 }
 
+/*
+ * Get the cacheinfo for the cache at @level on @cpu, or NULL if the cpu
+ * does not have that cache level.
+ */
+static inline struct cacheinfo *get_cpu_cacheinfo_level(int cpu, int level)
+{
+	struct cpu_cacheinfo *ci = get_cpu_cacheinfo(cpu);
+	int i;
+
+	for (i = 0; i < ci->num_leaves; i++) {
+		if (ci->info_list[i].level == level)
+			return &ci->info_list[i];
+	}
+
+	return NULL;
+}
+
 #ifdef CONFIG_ARM64
 #define use_arch_cache_info()	(true)
 #else

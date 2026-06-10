@@ -342,21 +342,33 @@ unsigned int cpumask_next_and_wrap(int n, const struct cpumask *src1p,
 }
 
 /**
- * cpumask_next_wrap - get the next cpu in *src, starting from @n+1. If nothing
- *		       found, wrap around and start from the beginning
- * @n: the cpu prior to the place to search (i.e. search starts from @n+1)
- * @src: cpumask pointer
+ * cpumask_next_wrap - helper to implement for_each_cpu_wrap
+ * @n: the cpu prior to the place to search
+ * @mask: the cpumask pointer
+ * @start: the start point of the iteration
+ * @wrap: assume @n crossing @start terminates the iteration
  *
- * Return: next set bit, wrapped if needed, or >= nr_cpu_ids if @src is empty.
+ * Returns >= nr_cpu_ids on completion
+ *
+ * Note: the @wrap argument is required for the start condition when
+ * we cannot assume @start is set in @mask.
  */
-static __always_inline
-unsigned int cpumask_next_wrap(int n, const struct cpumask *src)
+#if NR_CPUS == 1
+static inline
+unsigned int cpumask_next_wrap(int n, const struct cpumask *mask, int start, bool wrap)
 {
-	/* -1 is a legal arg here. */
+	cpumask_check(start);
 	if (n != -1)
 		cpumask_check(n);
-	return find_next_bit_wrap(cpumask_bits(src), small_cpumask_bits, n + 1);
+
+	if (wrap && n >= 0)
+		return nr_cpumask_bits;
+
+	return cpumask_first(mask);
 }
+#else
+unsigned int __pure cpumask_next_wrap(int n, const struct cpumask *mask, int start, bool wrap);
+#endif
 
 /**
  * for_each_cpu - iterate over every cpu in a mask
