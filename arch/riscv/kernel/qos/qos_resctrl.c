@@ -4,6 +4,7 @@
 
 #include <linux/slab.h>
 #include <linux/err.h>
+#include <linux/cpu.h>
 #include <linux/riscv_qos.h>
 #include <linux/resctrl.h>
 #include <linux/types.h>
