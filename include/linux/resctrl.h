@@ -402,4 +402,6 @@ int resctrl_arch_measure_cycles_lat_fn(void *_plr);
 int resctrl_arch_measure_l2_residency(void *_plr);
 int resctrl_arch_measure_l3_residency(void *_plr);
 
+struct rdt_resource *resctrl_arch_get_resource(enum resctrl_res_level l);
+
 #endif /* _RESCTRL_H */

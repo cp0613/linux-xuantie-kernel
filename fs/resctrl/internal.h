@@ -423,4 +423,16 @@ static inline int rdtgroup_pseudo_lock_create(struct rdtgroup *rdtgrp)
 static inline void rdtgroup_pseudo_lock_remove(struct rdtgroup *rdtgrp) { }
 #endif /* CONFIG_RESCTRL_FS_PSEUDO_LOCK */
 
+static inline u32 resctrl_arch_system_num_rmid_idx(void)
+{
+	struct rdt_resource *r;
+	u32 idx = 0;
+
+	for_each_rdt_resource(r) {
+		if (r->mon_capable)
+			idx = max(idx, (u32)r->num_rmid);
+	}
+	return idx;
+}
+
 #endif /* _FS_RESCTRL_INTERNAL_H */
