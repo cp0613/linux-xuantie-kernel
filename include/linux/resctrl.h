@@ -140,7 +140,6 @@ struct rdt_domain_hdr {
 	int				id;
 	enum resctrl_res_level		rid;
 	enum resctrl_domain_type	type;
-	enum resctrl_res_level		rid;
 	struct cpumask			cpu_mask;
 };
 
@@ -344,9 +343,6 @@ struct resctrl_mon {
  * @cdp_capable:	Is the CDP feature available on this resource
  */
 /* Monitoring metadata grouped into a sub-struct (used by CBQRI). */
-struct resctrl_mon {
-	u32			num_rmid;
-};
 
 struct rdt_resource {
 	int			rid;
@@ -362,6 +358,10 @@ struct rdt_resource {
 	char			*name;
 	enum resctrl_schema_fmt	schema_fmt;
 	bool			cdp_capable;
+	/* compat fields: used by fs/resctrl/ before the mon sub-struct refactor */
+	int			num_rmid;
+	struct list_head	evt_list;
+	unsigned int		mbm_cfg_mask;
 };
 
 /*
@@ -518,9 +518,9 @@ int resctrl_arch_update_one(struct rdt_resource *r, struct rdt_ctrl_domain *d,
 u32 resctrl_arch_get_config(struct rdt_resource *r, struct rdt_ctrl_domain *d,
 			    u32 closid, enum resctrl_conf_type type);
 int resctrl_online_ctrl_domain(struct rdt_resource *r, struct rdt_ctrl_domain *d);
-int resctrl_online_mon_domain(struct rdt_resource *r, struct rdt_domain_hdr *hdr);
+int resctrl_online_mon_domain(struct rdt_resource *r, struct rdt_mon_domain *d);
 void resctrl_offline_ctrl_domain(struct rdt_resource *r, struct rdt_ctrl_domain *d);
-void resctrl_offline_mon_domain(struct rdt_resource *r, struct rdt_domain_hdr *hdr);
+void resctrl_offline_mon_domain(struct rdt_resource *r, struct rdt_mon_domain *d);
 void resctrl_online_cpu(unsigned int cpu);
 void resctrl_offline_cpu(unsigned int cpu);
 
@@ -558,9 +558,9 @@ void resctrl_arch_pre_mount(void);
  * Return:
  * 0 on success, or -EIO, -EINVAL etc on error.
  */
-int resctrl_arch_rmid_read(struct rdt_resource *r, struct rdt_domain_hdr *hdr,
+int resctrl_arch_rmid_read(struct rdt_resource *r, struct rdt_mon_domain *d,
 			   u32 closid, u32 rmid, enum resctrl_event_id eventid,
-			   void *arch_priv, u64 *val, void *arch_mon_ctx);
+			   u64 *val, void *arch_mon_ctx);
 
 /**
  * resctrl_arch_rmid_read_context_check()  - warn about invalid contexts

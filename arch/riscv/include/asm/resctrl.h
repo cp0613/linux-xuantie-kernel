@@ -144,23 +144,11 @@ static inline unsigned int resctrl_arch_round_mon_val(unsigned int val)
 }
 
 /*
- * Monitor event capability stubs. CBQRI supports MBM total bytes and L3
- * occupancy. MBM local is not modeled.
+ * Monitor event capability predicates - implemented in qos_resctrl.c.
  */
-static inline bool resctrl_arch_is_llc_occupancy_enabled(void)
-{
-	return true;
-}
-
-static inline bool resctrl_arch_is_mbm_total_enabled(void)
-{
-	return true;
-}
-
-static inline bool resctrl_arch_is_mbm_local_enabled(void)
-{
-	return false;
-}
+bool resctrl_arch_is_llc_occupancy_enabled(void);
+bool resctrl_arch_is_mbm_total_enabled(void);
+bool resctrl_arch_is_mbm_local_enabled(void);
 
 /* Not needed for RISC-V */
 static inline void resctrl_arch_enable_mon(void) { }
