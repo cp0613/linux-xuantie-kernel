@@ -623,7 +623,7 @@ u32 resctrl_arch_get_config(struct rdt_resource *r, struct rdt_ctrl_domain *d,
 		cbqri_set_cbm(ctrl, 0);
 
 		/* Capacity read limit operation for RCID (closid) */
-		err = cbqri_cc_alloc_op(ctrl, CBQRI_CC_ALLOC_CTL_OP_READ_LIMIT, type, closid);
+		err = cbqri_cc_alloc_op(ctrl, CBQRI_CC_ALLOC_CTL_OP_READ_LIMIT, closid, type);
 		if (err < 0) {
 			pr_err("%s(): operation failed: err = %d", __func__, err);
 			return -EIO;
