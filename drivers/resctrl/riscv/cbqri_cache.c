@@ -74,13 +74,9 @@ static int __init cbqri_cache_init(void)
 		 * For CBQRI, any cpu (technically a hart in RISC-V terms)
 		 * can access the memory-mapped registers of any CBQRI
 		 * controller in the system. Therefore, set the CPU mask
-		 * to 'FF' to allow all 8 cores in the example Qemu SoC
+		 * to cover all possible CPUs.
 		 */
-		err = cpumask_parse("FF", &ctrl_info->cache.cpu_mask);
-		if (err) {
-			pr_err("Failed to convert cores mask string to cpumask (%d)", err);
-			goto err_kfree_ctrl_info;
-		}
+		cpumask_copy(&ctrl_info->cache.cpu_mask, cpu_possible_mask);
 
 		of_node_put(np);
 
