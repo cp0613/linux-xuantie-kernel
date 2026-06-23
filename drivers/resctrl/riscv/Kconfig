@@ -23,3 +23,18 @@ config RESCTRL_RISCV_CBQRI_BANDWIDTH
 	  Register Interface (CBQRI) specification.
 
 	  If you do not care about testing RISC-V CBQRI, then choose 'N'.
+
+config RESCTRL_RISCV_CBQRI_XL300
+	bool "Xuantie XL300 CBQRI support"
+	default y
+	depends on RISCV
+	select RISCV_ISA_SSQOSID
+	help
+	  Support the Xuantie XL300 L3 Cache interconnect which implements
+	  CBQRI capacity and bandwidth controllers at register offsets
+	  (CC at +0x400, BC at +0x480 from the XL300 base).
+
+	  The driver enables L3CR.PAE and registers both controllers with
+	  the generic CBQRI probe framework.
+
+	  If you do not use XL300-based SoCs, choose 'N'.
