@@ -509,9 +509,6 @@ static int cbqri_apply_bw_config(struct cbqri_resctrl_dom *hw_dom, u32 closid,
 	u64 reg;
 
 	if (cfg->rbwb != hw_dom->ctrl_val[closid]) {
-		/* Store the new rbwb in the ctrl_val array for this closid in this domain */
-		hw_dom->ctrl_val[closid] = cfg->rbwb;
-
 		/* Set reserved bandwidth blocks */
 		cbqri_set_rbwb(ctrl, cfg->rbwb);
 
@@ -539,6 +536,9 @@ static int cbqri_apply_bw_config(struct cbqri_resctrl_dom *hw_dom, u32 closid,
 				__func__, reg, cfg->rbwb);
 			return -EIO;
 		}
+
+		/* Update cached value only after hardware confirms success */
+		hw_dom->ctrl_val[closid] = cfg->rbwb;
 	}
 
 	return ret;
@@ -965,6 +965,7 @@ static int qos_init_domain_ctrlval(struct rdt_resource *r, struct rdt_ctrl_domai
 	struct cbqri_resctrl_res *hw_res;
 	struct cbqri_resctrl_dom *hw_dom;
 	u64 *dc;
+	u32 init_val;
 	int err = 0;
 	int i;
 
@@ -983,11 +984,23 @@ static int qos_init_domain_ctrlval(struct rdt_resource *r, struct rdt_ctrl_domai
 
 	hw_dom->ctrl_val = dc;
 
+	/*
+	 * For MBA seed every RCID at the minimum so the sum of all RBWB
+	 * stays well below NBWBLKS (max_rcid * max_bw can exceed 100% on
+	 * controllers with small NBWBLKS like XL300, which would trigger
+	 * BC_ALLOC_CTL status=5). Cache schemas don't have a global cap,
+	 * so the resctrl default (all-ones bitmask) is fine.
+	 */
+	if (r->rid == RDT_RESOURCE_MBA)
+		init_val = r->membw.min_bw;
+	else
+		init_val = resctrl_get_default_ctrl(r);
+
 	for (i = 0; i < hw_res->max_rcid; i++, dc++) {
-		err = resctrl_arch_update_one(r, d, i, 0, resctrl_get_default_ctrl(r));
+		err = resctrl_arch_update_one(r, d, i, 0, init_val);
 		if (err)
 			return 0;
-		*dc = resctrl_get_default_ctrl(r);
+		*dc = init_val;
 	}
 	return 0;
 }
@@ -1061,11 +1074,54 @@ static int qos_resctrl_add_controller_domain(struct cbqri_controller *ctrl, int 
 			res->membw.delay_linear = true;
 			res->membw.arch_needs_linear = true;
 			res->membw.throttle_mode = THREAD_THROTTLE_UNDEFINED;
-			// The minimum percentage allowed by the CBQRI spec
-			res->membw.min_bw = 1;
-			// The maximum percentage allowed by the CBQRI spec
-			res->membw.max_bw = 80;
-			res->membw.bw_gran = 1;
+			/*
+			 * Map percentage <-> RBWB using the controller's NBWBLKS
+			 * and MRBWB. min_bw is the smallest percentage that
+			 * yields RBWB >= 1 (so cfg_val * NBWBLKS / 100 doesn't
+			 * round to 0 on small-NBWBLKS hardware like XL300:
+			 * NBWBLKS=25, where 1% would underflow).
+			 *
+			 * max_bw is bounded so that one RCID at max_bw plus the
+			 * remaining (max_rcid - 1) RCIDs at min_bw still fits
+			 * NBWBLKS. Combined with seeding every RCID at min_bw
+			 * in qos_init_domain_ctrlval(), this keeps mkdir (which
+			 * resctrl initializes at max_bw) from overflowing the
+			 * BC_ALLOC_CTL "sum of RBWB <= NBWBLKS" rule.
+			 */
+			if (ctrl->bc.nbwblks) {
+				u32 min_blks, reserved, budget;
+
+				res->membw.bw_gran = DIV_ROUND_UP(100,
+							ctrl->bc.nbwblks);
+				res->membw.min_bw = res->membw.bw_gran;
+
+				/*
+				 * The BC controller enforces "sum of RBWB
+				 * across all RCIDs <= MRBWB". Since fs/resctrl
+				 * initializes new groups at max_bw on mkdir,
+				 * cap max_bw such that one RCID at max_bw plus
+				 * the remaining (max_rcid - 1) RCIDs each at
+				 * min_bw still fits MRBWB. Without this cap
+				 * mkdir would fail on hardware that strictly
+				 * enforces the sum (e.g. XL300, BC_ALLOC_CTL
+				 * status=5).
+				 */
+				min_blks = res->membw.min_bw *
+					   ctrl->bc.nbwblks / 100;
+				if (!min_blks)
+					min_blks = 1;
+				reserved = (cbqri_res->max_rcid - 1) * min_blks;
+				budget = ctrl->bc.mrbwb > reserved ?
+					 ctrl->bc.mrbwb - reserved : 1;
+
+				res->membw.max_bw = budget * 100 / ctrl->bc.nbwblks;
+				if (res->membw.max_bw < res->membw.min_bw)
+					res->membw.max_bw = res->membw.min_bw;
+			} else {
+				res->membw.min_bw = 1;
+				res->membw.max_bw = 80;
+				res->membw.bw_gran = 1;
+			}
 		}
 	} else {
 		pr_warn("%s(): unknown resource %d", __func__, ctrl->ctrl_info->type);
