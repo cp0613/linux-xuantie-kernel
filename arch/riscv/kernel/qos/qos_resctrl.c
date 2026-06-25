@@ -318,9 +318,14 @@ static void cbqri_set_cbm(struct cbqri_controller *ctrl, u64 cbm)
 
 		reg_offset = CBQRI_CC_BLOCK_MASK_OFF;
 		reg = ioread64(ctrl->base + reg_offset);
+		pr_info("cbqri-dbg: set_cbm pre  addr=0x%lx off=0x%x old=0x%llx new=0x%llx\n",
+			ctrl->ctrl_info->addr, reg_offset, reg, cbm);
 
 		reg = cbm;
 		iowrite64(reg, ctrl->base + reg_offset);
+		reg = ioread64(ctrl->base + reg_offset);
+		pr_info("cbqri-dbg: set_cbm post addr=0x%lx off=0x%x readback=0x%llx\n",
+			ctrl->ctrl_info->addr, reg_offset, reg);
 }
 
 /* Set the Rbwb (reserved bandwidth blocks) field in bc_bw_alloc */
@@ -354,16 +359,24 @@ static int cbqri_wait_busy_flag(struct cbqri_controller *ctrl, int reg_offset)
 	unsigned long timeout = jiffies + (HZ / 10); /* Timeout after 100ms */
 	int busy;
 	u64 reg;
+	int iter = 0;
 
 	while (time_before(jiffies, timeout)) {
 		reg = ioread64(ctrl->base + reg_offset);
 		busy = (reg >> CBQRI_CONTROL_REGISTERS_BUSY_SHIFT) &
 			CBQRI_CONTROL_REGISTERS_BUSY_MASK;
-		if (!busy)
+		if (iter < 4 || (iter & 0xff) == 0)
+			pr_info("cbqri-dbg: wait_busy off=0x%x iter=%d reg=0x%llx busy=%d\n",
+				reg_offset, iter, reg, busy);
+		if (!busy) {
+			pr_info("cbqri-dbg: wait_busy off=0x%x DONE iter=%d reg=0x%llx\n",
+				reg_offset, iter, reg);
 			return 0;
+		}
+		iter++;
 	}
 
-	pr_warn("%s(): busy timeout", __func__);
+	pr_warn("%s(): busy timeout reg=0x%llx", __func__, reg);
 	return -EIO;
 }
 
@@ -406,6 +419,8 @@ static int cbqri_cc_alloc_op(struct cbqri_controller *ctrl, int operation, int r
 	}
 
 	iowrite64(reg, ctrl->base + reg_offset);
+	pr_info("cbqri-dbg: cc_alloc_op write addr=0x%lx off=0x%x op=%d rcid=%d type=%d reg=0x%llx\n",
+		ctrl->ctrl_info->addr, reg_offset, operation, rcid, type, reg);
 
 	if (cbqri_wait_busy_flag(ctrl, reg_offset) < 0) {
 		pr_err("%s(): BUSY timeout when executing the operation", __func__);
@@ -415,6 +430,8 @@ static int cbqri_cc_alloc_op(struct cbqri_controller *ctrl, int operation, int r
 	reg = ioread64(ctrl->base + reg_offset);
 	status = (reg >> CBQRI_CONTROL_REGISTERS_STATUS_SHIFT) &
 		  CBQRI_CONTROL_REGISTERS_STATUS_MASK;
+	pr_info("cbqri-dbg: cc_alloc_op done  off=0x%x op=%d rcid=%d reg=0x%llx status=%d\n",
+		reg_offset, operation, rcid, reg, status);
 	if (status != 1) {
 		pr_err("%s(): operation %d failed: status=%d", __func__, operation, status);
 		return -EIO;
@@ -483,6 +500,8 @@ static int cbqri_bc_alloc_op(struct cbqri_controller *ctrl, int operation, int r
 	reg |=  (rcid & CBQRI_CONTROL_REGISTERS_RCID_MASK) <<
 		 CBQRI_CONTROL_REGISTERS_RCID_SHIFT;
 	iowrite64(reg, ctrl->base + reg_offset);
+	pr_info("cbqri-dbg: bc_alloc_op write addr=0x%lx off=0x%x op=%d rcid=%d reg=0x%llx\n",
+		ctrl->ctrl_info->addr, reg_offset, operation, rcid, reg);
 
 	if (cbqri_wait_busy_flag(ctrl, reg_offset) < 0) {
 		pr_err("%s(): BUSY timeout when executing the operation", __func__);
@@ -492,6 +511,8 @@ static int cbqri_bc_alloc_op(struct cbqri_controller *ctrl, int operation, int r
 	reg = ioread64(ctrl->base + reg_offset);
 	status = (reg >> CBQRI_CONTROL_REGISTERS_STATUS_SHIFT) &
 		  CBQRI_CONTROL_REGISTERS_STATUS_MASK;
+	pr_info("cbqri-dbg: bc_alloc_op done  off=0x%x op=%d rcid=%d reg=0x%llx status=%d\n",
+		reg_offset, operation, rcid, reg, status);
 	if (status != 1) {
 		pr_err("%s(): operation %d failed with status = %d",
 		       __func__, operation, status);

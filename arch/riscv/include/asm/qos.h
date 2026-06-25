@@ -23,6 +23,7 @@ static inline void __switch_to_srmcfg(struct task_struct *next)
 
 	if (thread_srmcfg != *cpu_srmcfg_ptr) {
 		*cpu_srmcfg_ptr = thread_srmcfg;
+		//pr_info("%s: %s=%x\n", __func__, next->comm, thread_srmcfg);
 		csr_write(CSR_SRMCFG, thread_srmcfg);
 	}
 }
